@@ -1,0 +1,5 @@
+https://developer.spotify.com/documentation/web-api/tutorials/code-flow
+https://developer.spotify.com/documentation/web-api/reference/get-recently-played
+
+https://developer.spotify.com/policy#iii-some-prohibited-applications
+https://developer.spotify.com/documentation/design#introduction

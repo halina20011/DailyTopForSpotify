@@ -1,0 +1,21 @@
+{
+  "name": "spotify",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "startFront": "browser-sync start --proxy localhost:5000 --files Html/**/*",
+    "dev": "nodemon --ext 'js' --watch ./ server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "http": "^0.0.1-security",
+    "nodemon": "^2.0.20",
+    "request": "^2.88.2"
+  }
+}
