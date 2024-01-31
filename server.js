@@ -2,13 +2,17 @@ const func = require('./func.js');
 
 const https = require("https");
 const path = require("path");
+const { MongoClient } = require('mongodb');
 const express = require("express");
 const request = require("request");
 
 const fs = require("fs");
 
-let app = express();
+const app = express();
 const port = 5000;
+
+const uri = "mongodb://localhost:27017";
+const client = new MongoClient(uri);
 
 let spotifyClientId;
 let spotifyClientSecret;
@@ -16,16 +20,30 @@ let spotifyRedirectUri;
 
 let accessToken = '';
 let refreshAccessToken;
+let lastTokenRequest;
 
 let nextRefreshAccessTokenTimer = null;
 let nextRequestTimer = null;
 
 const configFile = __dirname + "/config.json";
+const loginFile = __dirname + "/login.json";
 const infoLog = __dirname + "/Data/infoLog.json";
 
-let oneTrackApproxTime = 2 * 60;
+const scope = "streaming user-read-email user-read-private user-read-recently-played";
+
+app.use(express.json());
+
+const oneTrackApproxTime = 2 * 60;
 // apriximate how long it would take to listen to 50 songs
-getListenTimeApproximated = () => {return oneTrackApproxTime * 50 * 1000};
+const getListenTimeApproximated = () => {return oneTrackApproxTime * 50 * 1000};
+// lifespa of access Token in minutes
+const refreshAccessTokenLifespan = 45 * 60;
+
+const accessTokenTimeLeft = () => {
+    const a = Date.now() - refreshAccessTokenLifespan * 1000;
+    const b = lastTokenRequest;
+    return b - a;
+};
 
 function setNextReqest(){
     const listenTimeApproximated = getListenTimeApproximated();
@@ -33,30 +51,13 @@ function setNextReqest(){
     func.log(`next request in ${listenTimeApproximated}ms in `);
 }
 
-function setRefreshAccessTimeout(timeOutSeconds){
+function setRefreshAccessTimeout(timeOutSeconds = refreshAccessTokenLifespan){
     if(nextRefreshAccessTokenTimer){
         nextRefreshAccessTokenTimer.clear();
     }
+
     nextRefreshAccessTokenTimer = new func.TimeOut(requestRefreshedAccessToken, timeOutSeconds * 1000, undefined);
     func.log(`next refresh access token request in ${timeOutSeconds * 1000}ms`);
-}
-
-function saveConfig(){
-    func.log("Writing to config file");
-    const data = {
-        "SPOTIFY_CLIENT_ID": spotifyClientId,
-        "SPOTIFY_CLIENT_SECRET": spotifyClientSecret,
-        "SPOTIFY_REDIRECT_URI":  spotifyRedirectUri,
-        "REFRESH_ACCESS_TOKEN": refreshAccessToken
-    };
-
-    func.writeToFile(
-        fs,
-        configFile, 
-        JSON.stringify(data), 
-        () => {func.log(`${configFile} was updated`)}, 
-        (error) => {func.log(`error writing to ${configFile} ${error}`)}
-    );
 }
 
 function loadConfig(){
@@ -73,14 +74,48 @@ function loadConfig(){
     spotifyClientId = data["SPOTIFY_CLIENT_ID"];
     spotifyClientSecret = data["SPOTIFY_CLIENT_SECRET"];
     spotifyRedirectUri = data["SPOTIFY_REDIRECT_URI"];
-    refreshAccessToken = data["REFRESH_ACCESS_TOKEN"];
 }
+
+function loadLogin(){
+    func.log("loading login file");
+    if(fs.existsSync(loginFile)){
+        const fileContent = fs.readFileSync(loginFile);
+        const data = func.tryJsonParse(fileContent);
+
+        accessToken = data["accessToken"];
+        refreshAccessToken = data["refreshAccessToken"];
+        lastTokenRequest = new Date(data["lastTokenRequest"]);
+
+        if(accessTokenTimeLeft() <= 0){
+            accessToken = null;
+            lastTokenRequest = null; 
+        }
+    }
+}
+
+function saveLogin(){
+    func.log("Writing to config file");
+    const data = {
+        "accessToken": accessToken,
+        "refreshAccessToken": refreshAccessToken,
+        "lastTokenRequest":  lastTokenRequest,
+    };
+
+    func.writeToFile(
+        fs,
+        loginFile, 
+        JSON.stringify(data), 
+        () => {func.log(`${loginFile} was updated`)}, 
+        (error) => {func.log(`error writing to ${loginFile} ${error}`)}
+    );
+}
+
 
 function infoLogAccess(action, lastRequest = undefined, lastTimestamp = undefined){
     // func.log("trying to access infoLog");
     let data = {};
     if(fs.existsSync(infoLog)){
-        let fileContent = fs.readFileSync(infoLog);
+        const fileContent = fs.readFileSync(infoLog);
         data = func.tryJsonParse(fileContent);
     }
     
@@ -100,10 +135,6 @@ function infoLogAccess(action, lastRequest = undefined, lastTimestamp = undefine
         )
     }
 }
-
-const scope = "streaming user-read-email user-read-private user-read-recently-played";
-
-app.use(express.json());
 
 // Spotify
 const loginPath = "/auth/login";
@@ -125,9 +156,9 @@ app.get(loginPath, (req, res) => {
 // Request Access Token
 app.get('/auth/callback', (req, res) => {
     func.log(`accessed callback`);
-    let code = req.query.code;
+    const code = req.query.code;
 
-    let authOptions = {
+    const authOptions = {
         url: 'https://accounts.spotify.com/api/token',
         form:{
             code: code,
@@ -146,8 +177,7 @@ app.get('/auth/callback', (req, res) => {
             func.log(`access token retrieved`);
             accessToken = body.access_token;
             refreshAccessToken = body.refresh_token;
-            saveConfig();
-            setRefreshAccessTimeout(3500);
+            setRefreshAccessTimeout();
             res.redirect('/');
             // lastTracks();
         }
@@ -187,8 +217,10 @@ function requestRefreshedAccessToken(callback){
             if(res.statusCode === 200){
                 const jsonResponse = JSON.parse(data);
                 accessToken = jsonResponse.access_token;
-                func.log(accessToken);
-                setRefreshAccessTimeout(3500);
+                func.log(`${accessToken.substring(0, 10)}...`);
+                lastTokenRequest = new Date();
+                saveLogin();
+                setRefreshAccessTimeout();
                 if(callback != undefined){
                     callback();
                 }
@@ -213,10 +245,92 @@ function requestRefreshedAccessToken(callback){
 //
 // }
 
-function lastTracks(callback, ...args){
-    let lastTimestamp = infoLogAccess("read").lastRequest;
+class Artist{
+    constructor(obj){
+        this.id = obj.id;
+        this.name = obj.name;
+    }
+}
 
-    let time = (lastTimestamp == undefined) ? `before=${new Date().getTime()}` : `after=${lastTimestamp}`;
+class Song{
+    constructor(songId, name, playedAt){
+        this.songId = songId;
+        this.name = name;
+        this.dateStamp = func.dateStamp(playedAt);
+        this.playedAt = playedAt;
+    }
+}
+
+class SongInfo{
+    constructor(track){
+        this.songId = track.id;
+        this.name = track.name;
+        this.artists = track.artists.map(item => {return new Artist(item)});
+        this.duration = track.duration_ms;
+        this.image = track.album.images[0].url;
+        this.href = track.href;
+    }
+}
+
+function addSongs(data, callback, ...args){
+    const jsonResponse = JSON.parse(data);
+    if(Object.keys(jsonResponse.items).length <= 0){
+        func.log(`empty object with items`);
+        return;
+    }
+
+    const lastPlayedSong = (jsonResponse.items[0]).played_at;
+    const lastTimestamp = new Date(lastPlayedSong).getTime();
+
+    const toAdd = [];
+    Object.keys(jsonResponse.items).forEach(itemKey => {
+        const item = jsonResponse.items[itemKey];
+        const songId = item.track.id;
+        const name = item.track.name;
+
+        set.countDocuments({"songId": songId}, {limit: 1})
+        .then(size => {
+            if(size == 0){
+                func.log(`song "${name}" was firstly played`);
+                set.insertOne(new SongInfo(item.track));
+            }
+        });
+
+        const playedAt = new Date(item.played_at);
+        toAdd.push(new Song(songId, name, playedAt));
+
+        // const playedAt = new Date(item.played_at);
+        // const itemFolderTime = func.getFolderName(playedAt);
+        // if(responseByDates[itemFolderTime] == undefined){
+        //     responseByDates[itemFolderTime] = {
+        //         items: [],
+        //         next: jsonResponse.next,
+        //         cursors: {
+        //             "after" : `${playedAt.getTime()}`,
+        //             "before" : jsonResponse.cursors.before
+        //         },
+        //         limit: jsonResponse.limit,
+        //         href: jsonResponse.href
+        //     };
+        // }
+        // responseByDates[itemFolderTime].items.push(item);
+    });
+
+    func.log(`retrieved ${toAdd.length} tracks`);
+    history.insertMany(toAdd);
+
+    infoLogAccess("write", Date.now(), lastTimestamp);
+    setNextReqest();
+
+    if(callback){
+        callback(...args);
+    }
+}
+
+function lastTracks(callback, ...args){
+    const lastTimestamp = infoLogAccess("read").lastRequest;
+
+    const time = (lastTimestamp == null) ? `before=${new Date().getTime()}` : `after=${lastTimestamp}`;
     func.log(`Time: >${time}<`);
 
     const options = {
@@ -231,7 +345,7 @@ function lastTracks(callback, ...args){
     };
 
     // sending the request
-    const res = https.request(options, (res) => {
+    https.request(options, (res) => {
         let data = '';
          
         res.on("data", (chunk) => {
@@ -240,82 +354,13 @@ function lastTracks(callback, ...args){
         
         // Ending the response 
         res.on("end", () => {
+            func.log(`lastTrack status Code ${res.statusCode}`);
             if(res.statusCode === 200){
-                const jsonResponse = JSON.parse(data);
-                if(Object.keys(jsonResponse.items).length <= 0){
-                    func.log(`empty object with items`);
-                    return;
-                }
-                const lastPlayedSong = (jsonResponse.items[0]).played_at;
-                const lastTimestamp = new Date(lastPlayedSong).getTime();
-                let responseByDates = {};
-                // go throw every item in the response from playedAt value make and folderName that will
-                // be used as an hash key if the key doesnt exist then make new object that has same
-                // structure as the jsonResponse and add the item to the folderName.items 
-                // {
-                //      folderName1: {
-                //          items: {}
-                //      },
-                //      folderName2: {
-                //          items: {}
-                //      },
-                // }
-                // TODO: insted of adding each element use binary search and find the last item then
-                // split the object
-                Object.keys(jsonResponse.items).forEach(itemKey => {
-                    const item = jsonResponse.items[itemKey];
-                    const playedAt = new Date(item.played_at);
-                    const itemFolderTime = func.getFolderName(playedAt);
-                    if(responseByDates[itemFolderTime] == undefined){
-                        responseByDates[itemFolderTime] = {
-                            items: [],
-                            next: jsonResponse.next,
-                            cursors: {
-                                "after" : `${playedAt.getTime()}`,
-                                "before" : jsonResponse.cursors.before
-                            },
-                            limit: jsonResponse.limit,
-                            href: jsonResponse.href
-                        };
-                    }
-                    responseByDates[itemFolderTime].items.push(item);
-                });
-                
-                // console.log(lastPlayedSong.played_at);
-                // const lastTimestamp = 
-                // console.log(JSON.stringify(responseByDates, null, 4));
-                Object.keys(responseByDates).forEach(folderName => {
-                    const folderPath = `${__dirname}/Data/${folderName}`;
-
-                    if(!fs.existsSync(folderPath)){
-                        func.log(`initializing new day folder with path ${folderPath}`);
-
-                        try{
-                            fs.mkdirSync(folderPath);
-                        }
-                        catch(error){
-                            func.log(`error when initializing new day folder ${error}`);
-                        }
-                    }
-    
-                    const files = func.getFiles(fs, path, folderPath);
-                    const fileIndexName = `${folderPath}/${files.length}.json`;
-                    
-                    const newfileContent = JSON.stringify(responseByDates[folderName]);
-                    func.writeToFile(
-                        fs,
-                        fileIndexName,
-                        newfileContent,
-                        () => {func.log(`response with length ${newfileContent.length} was written to ${fileIndexName} successfully`)},
-                        (error) => {func.log(`error writing to ${fileIndexName} ${error}`)}
-                    );
-                });
-
-                infoLogAccess("write", Date.now(), lastTimestamp);
-                setNextReqest();
-                if(callback){
-                    callback(...args);
-                }
+                addSongs(data, callback, args);
+            }
+            else if(res.statusCode == 401){
+                func.error("Bad or expired token, requesting refreshed token");
+                requestRefreshedAccessToken();
             }
             else{
                 func.log(`status Code ${res.statusCode}`);
@@ -326,6 +371,7 @@ function lastTracks(callback, ...args){
         func.error(`error occurred on requesting last tracks: "${error}"`);
     }).end();
 }
+
 const routs = [
     ["/", "/Html/index.html"],
     ["/style.css", "/Html/style.css"],
@@ -342,8 +388,9 @@ routs.forEach(rout => {
 app.use('/Images', express.static(__dirname + "/Images"));
 
 app.get('/api/lastTracks', (req, res) => {
-    if(accessToken == "" || accessToken == undefined){
-        res.statu(400).send("accessToken is invalid please login first");
+    if(accessToken == "" || accessToken == null){
+        res.status(400).send("accessToken is invalid please login first");
+        return;
     }
     if(nextRequestTimer){
         nextRequestTimer.clear();
@@ -355,12 +402,16 @@ app.get('/api/lastTracks', (req, res) => {
 app.get('/api/info', (req, res) => {
     const lastRequest = infoLogAccess("read").lastRequest;
     const lastTrack = infoLogAccess("read").lastTrack;
+    const aTTLU = accessTokenTimeLeft();
+    const aTTL = new Date(aTTLU);
     const info = {
-        "nextAccessToken": (nextRefreshAccessTokenTimer) ? nextRefreshAccessTokenTimer.info() : undefined,
-        "nextRequest": (nextRequestTimer) ? nextRequestTimer.info() : undefined,
+        "nextAccessToken": (nextRefreshAccessTokenTimer) ? nextRefreshAccessTokenTimer.info() : null,
+        "nextRequest": (nextRequestTimer) ? nextRequestTimer.info() : null,
+        "accessTokenTimeLeft": (aTTL) ? aTTL.timeLeft(): aTTLU,
         "lastRequest": new Date(lastRequest).toLogFormat(),
         "lastTrack": new Date(lastTrack).toLogFormat(),
     }
+
     res.json(info);
 });
 
@@ -389,7 +440,7 @@ function makeOutput(folderName){
             return [false, {}];
         }
 
-        let outputFile = `${folderName}/output.json`;
+        const outputFile = `${folderName}/output.json`;
         if(fs.existsSync(outputFile)){
             const oldOutput = func.tryJsonParse(fs.readFileSync(outputFile));
             if(files.length == oldOutput.numberOfFiles){
@@ -400,7 +451,7 @@ function makeOutput(folderName){
                 func.log(`${outputFile} is obsolete, it should be updated`);
             }
         }
-        let output = {
+        const output = {
             numberOfFiles: 0,
             totalPlaybackCount: 0,
             numberOfSongs: 0,
@@ -417,13 +468,13 @@ function makeOutput(folderName){
             func.log(`processing ${file}...`);
             const fileContent = func.tryJsonParse(fs.readFileSync(fileFullPath));
 
-            if(fileContent == undefined){
+            if(fileContent == null){
                 func.log(`error file content of ${fileFullPath} is undefined`);
             }
             else{
                 fileContent.items.forEach((item, i) => {
                     const song = createSongInfo(item);
-                    if(output.allSongs[song.id] == undefined){
+                    if(output.allSongs[song.id] == null){
                         output.allSongs[song.id] = song;
                         output.allSongs[song.id].playedAt = [song.playedAt];
                         numberOfSongs++;
@@ -441,7 +492,7 @@ function makeOutput(folderName){
         output.numberOfSongs = numberOfSongs;
         output.totalPlaybackCount = totalPlaybackCount;
 
-        let status = func.writeToFile(
+        const status = func.writeToFile(
             fs,
             outputFile,
             JSON.stringify(output),
@@ -456,46 +507,177 @@ function makeOutput(folderName){
     return [false, {}];
 }
 
-app.post('/api/songs', (req, res) => {
-    const jsonData = req.body;
-    const dates = jsonData.dates;
-    if(dates == undefined){
-        res.status(400).send();
+function getSongInfo(ids, onSuccess, songInfo, onError){
+    if(ids == null || ids.length == 0){
+        onSuccess(songInfo);
+        return 0;
+    }
+    
+    if(50 < ids.length){
+        ids.splice(50);
     }
 
-    let allOutputs = {
-        totalPlaybackCount: 0,
-        numberOfSongs: 0,
-        allSongs: {},
+    const options = {
+        hostname: "api.spotify.com",
+        path: `/v1/tracks?ids=${ids.join(",")}`,
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${accessToken}`,
+        },
     };
 
-    let status, output;
-    for(let i = 0; i < dates.length; i++){
-        const date = new Date(dates[i]);
-        const folderName = `${__dirname}/Data/${func.getFolderName(date)}`;
-        [status, output] = makeOutput(folderName);
-        if(status == true && output != undefined && output != {}){
-            Object.keys(output.allSongs).forEach((id) => {
-                const song = output.allSongs[id];
-                if(allOutputs.allSongs[id] == undefined){
-                    allOutputs.allSongs[id] = song;
+    // sending the request
+    https.request(options, (res) => {
+        let data = '';
+         
+        res.on("data", (chunk) => {
+            data += chunk;
+        });
+        
+        // Ending the response 
+        res.on("end", () => {
+            data = JSON.parse(data);
+            if(res.statusCode === 200){
+                const tracks = data.tracks;
+                if(data != null && tracks != null){
+                    const newSongInfo = tracks.map(track => new SongInfo(track));
+                    set.insertMany(newSongInfo).then(result => {
+                        func.log(`added ${result.insertedCount} new song info `)
+                    });
+                    Object.assign(songInfo, newSongInfo);
+                    onSuccess(songInfo);
                 }
                 else{
-                    allOutputs.allSongs[id].playedAt = allOutputs.allSongs[id].playedAt.concat(song.playedAt);
-                    allOutputs.allSongs[id].numberOfPlaybacks += song.numberOfPlaybacks;
+                    onError();
                 }
-            });
-            allOutputs.numberOfSongs += output.numberOfSongs;
-            allOutputs.totalPlaybackCount += output.totalPlaybackCount;
-        }
-    }
+            }
+            else if(res.statusCode == 401){
+                onError();
+                func.error("Bad or expired token, requesting refreshed token");
+                requestRefreshedAccessToken();
+            }
+            else{
+                onError();
+                func.log(`status Code ${res.statusCode} ${data}`);
+            }
+        });
+           
+    }).on("error", (error) => {
+        onError();
+        func.error(`error occurred on requesting last tracks: "${error}"`);
+    }).end();
+}
 
-    res.json(allOutputs);
+app.post("/api/songInfo", (req, res) => {
+    const jsonData = req.body;
+    const songIds = jsonData.songIds;
+    if(songIds == null){
+        res.status(400).send();
+        return;
+    }
+    
+    const songIdsSet = new Set(songIds);
+    
+    const onSuccess = (dataArray) => {
+        const entries = Object.fromEntries(dataArray.map(obj => [obj.songId, obj]));
+        res.json(entries);
+    };
+
+    set.find({songId: {$in: songIds}}).toArray()
+    .then(result => {
+        result.forEach(item => {
+            songIdsSet.delete(item.songId);
+        });
+
+        if(songIdsSet.size != 0){
+            const array = Array.from(songIdsSet);
+            console.log(`not found ${songIdsSet.size} ${array.join(",")}`);
+            getSongInfo(array, onSuccess, result, () => {res.sendStatus(404)});
+        }
+        else{
+            onSuccess(result);
+        }
+    })
+    .catch(error => {
+        func.error(`error on quering songs: ${error}`);
+        res.sendStatus(500);
+    })
 });
 
-let server = app.listen(port, () => {
+app.post('/api/played', (req, res) => {
+    const jsonData = req.body;
+    const dates = jsonData.dates;
+    if(dates == null){
+        res.status(400).send();
+        return;
+    }
+    
+    console.log(dates);
+    history.find({ dateStamp: {$in: dates}}).toArray()
+    .then(result => {
+        // console.log(result);
+        const songs = {};
+        // console.log(dataArray.length);
+        result.forEach(song => {
+            const songId = song.songId;
+            if(songs[songId] == null){
+                song.playbackCount = 1;
+                song.playedAt = [song.playedAt];
+                songs[songId] = song;
+            }
+            else{
+                songs[songId].playbackCount++;
+                songs[songId].playedAt.push(song.playedAt);
+            }
+        });
+        
+        // console.log(Object.keys(songs).length);
+        res.json(songs);
+    })
+    .catch(error => {
+        func.error(`error on quering songs: ${error}`);
+        res.sendStatus(500);
+    })
+
+    // let status, output;
+    // for(let i = 0; i < dates.length; i++){
+    //     const date = new Date(dates[i]);
+    //     const folderName = `${__dirname}/Data/${func.getFolderName(date)}`;
+    //     [status, output] = makeOutput(folderName);
+    //     if(status == true && output != undefined && output != {}){
+    //         Object.keys(output.allSongs).forEach((id) => {
+    //             const song = output.allSongs[id];
+    //             if(allOutputs.allSongs[id] == undefined){
+    //                 allOutputs.allSongs[id] = song;
+    //             }
+    //             else{
+    //                 allOutputs.allSongs[id].playedAt = allOutputs.allSongs[id].playedAt.concat(song.playedAt);
+    //                 allOutputs.allSongs[id].numberOfPlaybacks += song.numberOfPlaybacks;
+    //             }
+    //         });
+    //         allOutputs.numberOfSongs += output.numberOfSongs;
+    //         allOutputs.totalPlaybackCount += output.totalPlaybackCount;
+    //     }
+    // }
+
+});
+
+const server = app.listen(port, () => {
     func.log(`running on http://${server.address().address}:${server.address().port}`);
 });
+
+// we will have three collections
+//  history: each song that have been played
+//
+//  set: each song has data that will repeat (as song id, artist, release date, uri...)
+//      every time new song is played
+//
+//  summary: each day will have 
+//      total listen time
+//      total number of listened songs
+//      frequency of songs
+//          first frequency 
+//          if frequency matches then the longer song wins
 
 //  .
 //  ├── config.json
@@ -533,16 +715,36 @@ let server = app.listen(port, () => {
 //
 //
 //  front-end
+// TODO: clear songs that have been played only few times
 
-loadConfig();
-if(refreshAccessToken != "" && refreshAccessToken != undefined){
-    func.log(`refresh access token was found`);
-    // let lastTrack = infoLogAccess("read").lastRequest;
-    requestRefreshedAccessToken(undefined /*lastTracks*/);
-}
-else{
-    func.log(`invalid refresh access token, waiting for user to log in on ${loginPath}`);
-}
+const dbName = "dailyTopForSpotify";
+
+let db, history, set;
+
+client.connect().then(_ => {
+    func.log("database connected");
+    db = client.db(dbName);
+    history = db.collection("history");
+    set = db.collection("set");
+
+    loadConfig();
+    loadLogin();
+    if(refreshAccessToken != "" && refreshAccessToken != null){
+        func.log(`refresh access token was found`);
+        if(accessToken != null){
+            func.log(`access token is still valid, left: ${accessTokenTimeLeft()}`);
+            setRefreshAccessTimeout();
+        }
+        else{
+            requestRefreshedAccessToken(undefined /*lastTracks*/);
+        }
+        // let lastTrack = infoLogAccess("read").lastRequest;
+    }
+    else{
+        func.log(`invalid refresh access token, waiting for user to log in on ${loginPath}`);
+    }
+}).catch(error => func.error(`failed to connect to database: ${error}`));
+
 
 // setInterval(() => {
 //     

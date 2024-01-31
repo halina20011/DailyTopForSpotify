@@ -43,7 +43,7 @@ Date.prototype.yesterday = function(){
     return _yesterday;
 }
 
-function sortByPlaybacks(allSongs){
+function sortByPlaybackCount(songs){
     // let playbacks = {};
     // allSongs.forEach((song) => {
     //     if(playbacks[song.id] == undefined){
@@ -53,12 +53,11 @@ function sortByPlaybacks(allSongs){
     // });
 
     // console.log(playbacks);
-    const playbacksArray = Object.entries(allSongs);
+    const playbacksArray = Object.entries(songs);
     // console.log(playbacksArray);
-    playbacksArray.sort((a, b) => b[1].playedAt.length - a[1].playedAt.length);
-    console.log(playbacksArray);
+    playbacksArray.sort((a, b) => b[1].playbackCount - a[1].playbackCount);
     // let allSortedSongs = playbacksArray.map(([key, value], i) => {return {id:i, items:value}; });
-    let allSortedSongs = Object.fromEntries(playbacksArray);
+    const allSortedSongs = Object.fromEntries(playbacksArray);
     // const sortedPlaybacks = playbacksArray.map(([key, value]) => ({ id: key, items: value }));
 
     return allSortedSongs;
@@ -80,15 +79,22 @@ HTMLElement.prototype.appendChildren = function(...args){
     }
 };
 
-function createEntries(allOutputs){
+function createEntries(songs, songsInfo){
+    console.log(songs);
+    console.log(songsInfo)
+
     songsHolder.innerHTML = "";
-    Object.keys(allOutputs.allSongs).forEach(id => {
-        const song = allOutputs.allSongs[id];
+    Object.keys(songs).forEach(key => {
+        console.log(songs[key].playbackCount);
+        const song = songs[key];
+        const songId = song.songId;
+        const songInfo = songsInfo[songId];
         const songElement = createElement(`<div class="song"></div>`);
-        const artists = (allOutputs.allSongs[id].artists.map(artist => artist.name)).join(", ");
+        const artists = (songInfo) ? (songInfo.artists.map(artist => artist.name)).join(", ") : "";
+        const image = (songInfo) ? songInfo.image : null;
         songElement.innerHTML = `
             <div class="firstLine">
-                <img class="image" src="${song.image.url}" alt="${song.name}">
+                <img class="image" src="${image}" alt="${song.name}">
                 <div>
                     <div class="songName">${song.name}</div>
                     <div class="artistNames">${artists}</div>
@@ -97,24 +103,27 @@ function createEntries(allOutputs){
             <div class="playedAtHolder">
                 <div class="playedAtInfo">
                     <button id="toggleButton"></button>
-                    <p>${song.numberOfPlaybacks}</p>
+                    <p>${song.playbackCount}</p>
                 </div>
                 <div class="playedAt hidden" id="playedAt"></div>
             </div>
         `;
+
+                    // <p>${song.numberOfPlaybacks}</p>
         const playedAtEl = songElement.querySelector("#playedAt");
         const playedAtHolder = songElement.querySelector(".playedAtHolder");
         playedAtHolder.addEventListener("click", () => {
             playedAtEl.classList.toggle("hidden");
         }, false);
 
-        let playedAt = song.playedAt.map(d => new Date(d));
+        const playedAt = song.playedAt.map(d => new Date(d));
         playedAt.sort((a, b) => b.getTime() - a.getTime());
         playedAt.forEach((time, i) => {
-            let playedAtElement = document.createElement("div");
+            const playedAtElement = document.createElement("div");
             playedAtElement.innerHTML = `<div>${i + 1}</div><div>${time.format()}</div>`;
             playedAtEl.appendChild(playedAtElement);
         });
+
         songsHolder.appendChild(songElement);
     });
 }
@@ -122,8 +131,8 @@ function createEntries(allOutputs){
 // first join all songs and sort them and apply filters if needed
 // TODO: sort by number of playes, artist
 // TODO: filters
-function createSongs(allOutputs){
-    console.log(allOutputs);
+function createSongs(songs){
+    // console.log(songs);
     let allSongs = [];
     let numberOfSong = 0;
     // Object.keys(allOutputs.playedSongs).forEach((id) => {
@@ -136,8 +145,22 @@ function createSongs(allOutputs){
     // });
     // console.log(allSongs);
     // allOutputs.allSongs 
-    allOutputs.allSongs = sortByPlaybacks(allOutputs.allSongs);
-    createEntries(allOutputs);
+    songs = sortByPlaybackCount(songs);
+    const songIds = Array.from(new Set(Object.keys(songs).map(songKey => songs[songKey].songId)));
+    requestSongInfo(songIds, (songInfo) => {
+        createEntries(songs, songInfo);
+    })
+}
+
+function dateStamp(date){
+    console.log(date);
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = String(date.getFullYear());
+
+    const folderName = `${d}${m}${y}`;
+
+    return folderName;
 }
 
 // dates: date object or array of date objects
@@ -145,10 +168,11 @@ function requestSavedSongs(dates){
     if(!Array.isArray(dates)){
         dates = [dates];
     }
-    console.log(dates);
+
+    dates = dates.map(date => dateStamp(date));
 
     const datesObj = {"dates": dates};
-    fetch("/api/songs", {
+    fetch("/api/played", {
         method: "POST",
         cache: "no-cache",
         headers: {
@@ -157,8 +181,9 @@ function requestSavedSongs(dates){
         body: JSON.stringify(datesObj)
     }).then((response) => {
         if(response.status == 200){
+            // console.log(response);
             response.json().then(a => {
-                // console.log(a);
+                console.log(a);
                 createSongs(a);
             });
         }
@@ -167,13 +192,36 @@ function requestSavedSongs(dates){
     });
 }
 
-let leftColumn = document.querySelector(".leftColumn");
-let daySelector = new DaySelector(leftColumn, new Date());
+function requestSongInfo(songIds, callback, ...args){
+    const objSongIds = {"songIds": songIds};
+
+    fetch("/api/songInfo", {
+        method: "POST",
+        cache: "no-cache",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(objSongIds)
+    }).then((response) => {
+        if(response.status == 200){
+            response.json().then(a => {
+                console.log(a);
+                callback(a, args)
+                // createSongs(a);
+            });
+        }
+    }).catch(error => {
+        console.error(error);
+    });
+}
+
+const leftColumn = document.querySelector(".leftColumn");
+const daySelector = new DaySelector(leftColumn, new Date());
 daySelector.submit.addEventListener("click", _ => {
     const selected = daySelector.selected();
+    console.log(typeof selected[0]);
     requestSavedSongs(selected);
     // console.log("UwU");
 }, false);
 
-let thisDay = new Date();
 requestSavedSongs(new Date());

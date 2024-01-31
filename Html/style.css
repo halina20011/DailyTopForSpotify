@@ -107,6 +107,11 @@ body{
     text-align: center;
 }
 
+.song *{
+    overflow: hidden;
+    text-overflow: "..."
+}
+
 .song{
     width: 100%;
     height: fit-content;

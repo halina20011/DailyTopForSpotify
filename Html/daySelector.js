@@ -1,11 +1,11 @@
 Date.prototype.previousMonth = function(){
-    let prevMonth = new Date(this);
+    const prevMonth = new Date(this);
     prevMonth.setMonth(prevMonth.getMonth() - 1);
     return prevMonth;
 }
 
 Date.prototype.nextMonth = function(){
-    let nextMonth = new Date(this);
+    const nextMonth = new Date(this);
     nextMonth.setMonth(nextMonth.getMonth() + 1);
     return nextMonth;
 }
@@ -43,49 +43,51 @@ function createElement(htmlString){
     return element;
 }
 
-export function DaySelector(parentElement, monthWindow){
-    this.parentElement = parentElement;
-    this.monthWindow = (!monthWindow) ? new Date() : monthWindow;
-    
-    this.settings = createElement(`
-        <div class="settings">
-            <button class="previousMonth"></button>
-            <p class="monthName"></p>
-            <button class="nextMonth"></button>
-        </div>
-    `);
+export class DaySelector{
+    constructor(parentElement, monthWindow){
+        this.parentElement = parentElement;
+        this.monthWindow = (!monthWindow) ? new Date() : monthWindow;
+        
+        this.settings = createElement(`
+            <div class="settings">
+                <button class="previousMonth"></button>
+                <p class="monthName"></p>
+                <button class="nextMonth"></button>
+            </div>
+        `);
 
-    this.monthName = this.settings.querySelector(".monthName");
-    this.days = {};
-    this.numberOfDays = 0;
-    this.start = 0;
-    this.end = 0;
+        this.monthName = this.settings.querySelector(".monthName");
+        this.days = {};
+        this.numberOfDays = 0;
+        this.start = 0;
+        this.end = 0;
 
-    this.previousMonth = this.settings.querySelector(".previousMonth");
-    this.previousMonth.addEventListener("click", () => {
-        this.monthWindow = this.monthWindow.previousMonth();
+        this.previousMonth = this.settings.querySelector(".previousMonth");
+        this.previousMonth.addEventListener("click", () => {
+            this.monthWindow = this.monthWindow.previousMonth();
+            this.update();
+        }, false);
+
+        this.nextMonth = this.settings.querySelector(".nextMonth");
+        this.nextMonth.addEventListener("click", () => {
+            this.monthWindow = this.monthWindow.nextMonth();
+            this.update();
+        }, false);
+        
+        this.daySelectorHolder = document.createElement("div");
+        this.daySelectorHolder.className = "daySelectorHolder";
+
+        this.daySelector = document.createElement("div");
+        this.daySelector.className = "daySelector";
+        
+        this.submit = createElement(`<button class="submit">submit</button>`);
+
+        console.log(this.parentElement);
+        this.parentElement.appendChild(this.daySelectorHolder);
+        [this.settings, this.daySelector, this.submit].forEach(e => this.daySelectorHolder.appendChild(e));
+
         this.update();
-    }, false);
-
-    this.nextMonth = this.settings.querySelector(".nextMonth");
-    this.nextMonth.addEventListener("click", () => {
-        this.monthWindow = this.monthWindow.nextMonth();
-        this.update();
-    }, false);
-    
-    this.daySelectorHolder = document.createElement("div");
-    this.daySelectorHolder.className = "daySelectorHolder";
-
-    this.daySelector = document.createElement("div");
-    this.daySelector.className = "daySelector";
-    
-    this.submit = createElement(`<button class="submit">submit</button>`);
-
-    console.log(this.parentElement);
-    this.parentElement.appendChild(this.daySelectorHolder);
-    [this.settings, this.daySelector, this.submit].forEach(e => this.daySelectorHolder.appendChild(e));
-
-    this.update();
+    }
 }
 
 DaySelector.prototype.update = function(){
@@ -101,16 +103,16 @@ DaySelector.prototype.update = function(){
 
     for(let i = 0; i < this.end; i++){
         const enabled = (this.start <= i && i <= this.end);
-        let obj = {
+        const obj = {
             button : createElement(`<div class="day"><p><p></div>`),
             enabled : enabled,
             state : false,
             date : null
         }
 
-        let text = obj.button.querySelector("p");
+        const text = obj.button.querySelector("p");
 
-        let dayDate = new Date(this.monthWindow);
+        const dayDate = new Date(this.monthWindow);
         dayDate.setDate(i - this.start + 1);
         obj.date = dayDate;
         
@@ -147,9 +149,13 @@ DaySelector.prototype.select = function(date){
 }
 
 DaySelector.prototype.selected = function(){
-    return Object.keys(this.days).filter(day => {
+    const arr = [];
+    
+    Object.keys(this.days).forEach(day => {
         if(this.days[day].state == true){
-            return this.days[day].date;
+            arr.push(this.days[day].date);
         }
     });
+
+    return arr;
 }

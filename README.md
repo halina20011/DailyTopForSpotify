@@ -10,6 +10,23 @@ rename/copy `configTemplate.json` to `config.json` </br>
 and fill out 
 `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` from the spotify app settings </br>
 
+## Set up MongoDB
+start mongodb service `sudo systemctl start mongodb.service`
+
+connect to the database with `mongosh`
+
+list all databases `show databases`
+
+create a database called "dailyTopForSpotify" `use dailyTopForSpotify`
+
+set up the database:
+```
+db.createCollection("history")
+
+db.createCollection("set")
+db.set.createIndex({"songId": 1}, {unique: true})
+```
+
 ## Images
 <img src="Images/preview1.png" alt="preview1" width="100%">
 <img src="Images/preview2.png" alt="preview2" width="100%">

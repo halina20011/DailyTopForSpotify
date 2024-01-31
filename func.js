@@ -20,7 +20,7 @@ TimeOut.prototype.info = function(){
 }
 
 function formatTime(timeLength){
-    if(timeLength == -1){
+    if(timeLength == -1 || timeLength == null){
         return `-1`;
     }
     // convert it to seconds
@@ -45,11 +45,16 @@ Date.prototype.toLogFormat = function(){
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
 }
 
+Date.prototype.timeLeft = function(){
+    return formatTime(this);
+}
+
 Date.prototype.sameDay = function(secondDate){
     this.getDate() === secondDate.getDate();
 }
 
-const ESC = "\033";
+// const ESC = "\033";
+const ESC = "\x1b";
 const escapeSequence = `${ESC}[0m`;
 
 function Color8Bit(r, g, b){
@@ -133,7 +138,7 @@ function getFiles(fs, path, dir){
     return sortedFiles;
 }
 
-function getFolderName(date){
+function dateStamp(date){
     const d = String(date.getDate()).padStart(2, '0');
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const y = String(date.getFullYear());
@@ -146,7 +151,7 @@ function getFolderName(date){
 function writeToDayLog(fs, path, newFileName){
     let data = {};
     if(fs.existsSync(path)){
-        let fileContent = fs.readFileSync(path);
+        const fileContent = fs.readFileSync(path);
         data = tryJsonParse(fileContent);
     }
 
@@ -164,14 +169,14 @@ function tryJsonParse(data){
     try{
         return JSON.parse(data);
     }
-    catch(e){
+    catch(_e){
         return {};
     }
 }
 
 function generateRandomString(length){
     let text = '';
-    let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
     for(let i = 0; i < length; i++) {
         text += possible.charAt(Math.floor(Math.random() * possible.length));
@@ -180,4 +185,4 @@ function generateRandomString(length){
     return text;
 }
 
-module.exports = {TimeOut, log, error, writeToFile, getAllFolders, getFiles, getFolderName, writeToDayLog, tryJsonParse, generateRandomString};
+module.exports = {TimeOut, log, error, writeToFile, getAllFolders, getFiles, dateStamp, writeToDayLog, tryJsonParse, generateRandomString};
