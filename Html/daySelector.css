@@ -1,0 +1,69 @@
+.daySelectorHolder{
+    width: 100%;
+    overflow: hidden;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.daySelectorHolder > .settings{
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+}
+
+.previousMonth, .nextMonth{
+    border: none;
+    background-size: 100%;
+    background-color: transparent;
+    background-repeat: no-repeat;
+    aspect-ratio: 1/1;
+}
+
+.previousMonth{
+    background-image: url("/Images/arrow.svg");
+    transform: rotate(180deg);
+}
+
+.nextMonth{
+    background-image: url("/Images/arrow.svg");
+    background-size: 100%;
+}
+
+.daySelector{
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    padding: 10px;
+}
+
+.daySelector > .day{
+    aspect-ratio: 1/1;
+    background-color: white;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.daySelector > div > p{
+    user-select: none;
+}
+
+.daySelectorHolder > .submit{
+    width: fit-content;
+    margin-left: auto;
+    padding: 2px;
+}
+
+.today{
+    border: solid black 4px;
+}
+
+.selectedDay{
+    background-color: rgba(20, 20, 20, 0.2)!important;
+}
+

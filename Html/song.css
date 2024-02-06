@@ -1,0 +1,120 @@
+.songView{
+    display: flex;
+    justify-content: end;
+}
+
+.toggleSongLineStyle, .toggleSongBoxStyle{
+    border-radius: 5px;
+    background-size: 100%;
+    background-color: transparent;
+    border: none;
+    width: 50px;
+    height: 50px;
+}
+
+.toggleSongBoxStyle{
+    background-image: url("/Images/boxStyleIcon.svg");
+}
+
+.toggleSongLineStyle{
+    background-image: url("/Images/lineStyleIcon.svg");
+}
+
+.active{
+    background-color: rgba(100, 100, 100, 0.5);
+}
+
+.song *{
+    overflow: hidden;
+    text-overflow: "..."
+}
+
+.song{
+    width: 100%;
+    height: fit-content;
+    background-color: #505050;
+    border-radius: 10px;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.songName{
+    font-size: 25px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.artistNames{
+    font-size: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* #############################################################*/
+/*                      SONG LINE STYLE                         */
+/* #############################################################*/
+.songLineStyle{
+    display: flex;
+    flex-direction: column;
+}
+
+.songLineStyle > .song > .firstLine{
+    position: relative;
+    display: flex;
+    gap: 10px;
+}
+
+/* i cant use round borders qwq
+ * https://developer.spotify.com/documentation/design#using-our-content
+*/
+.songLineStyle .image{
+    width: 8vw; 
+    aspect-ratio: 1/1;
+}
+
+.songLineStyle > .song > .playedAtHolder{
+    padding: 10px;
+    padding-bottom: 0px;
+}
+
+.playedAtHolder > .playedAtInfo{
+    display: flex;
+    justify-content: space-between;
+}
+
+.playedAtHolder > .playedAt > *{
+    display: flex;
+    justify-content: space-between;
+}
+
+.playedAtHolder > .playedAtInfo > button{
+    width: 30px;
+    aspect-ratio: 2/1;
+    background-image: url("/Images/arrowDown.svg");
+    background-size: 100%;
+    background-position: 50%;
+    background-repeat: no-repeat;
+    background-color: transparent;
+    border: none;
+}
+
+/* #############################################################*/
+/*                       SONG BOX STYLE                         */
+/* #############################################################*/
+.songBoxStyle{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.songBoxStyle > .song > .firstLine{
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.songBoxStyle .image{
+    background-size: 100px;
+    width: 100%;
+    background-repeat: no-repeat;
+}

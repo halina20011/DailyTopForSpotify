@@ -2,9 +2,43 @@ import {DaySelector} from "./daySelector.js";
 
 console.log("I live <3");
 
-const songsHolder = document.getElementById("songsHolder");
+HTMLElement.prototype.$ = function(name, f, run){
+    if(run == true && f){
+        f();
+    }
 
-const songsView = document.getElementById("songsView");
+    this.addEventListener(name, () => { f(); }, false);
+}
+
+function createElement(html){
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+
+    const element = temp.children[0];
+    temp.remove();
+
+    return element;
+}
+
+const songsHolder = document.querySelector(".songsHolder");
+const statsHolder = document.querySelector(".statsHolder");
+const histogramElement = document.querySelector(".histogram");
+const histogramTextElement = document.querySelector(".histogramText");
+
+const windowButtons = [".songPreview", ".histogramPreview"].map(bName => document.querySelector(bName));
+const windows = [songsHolder, statsHolder];
+let activeWindow = 0;
+
+for(let i = windows.length - 1; i >= 0; i--){
+    windowButtons[i].$("click", () => {
+        windows[activeWindow].classList.add("hidden");
+        windowButtons[activeWindow].classList.remove("selected");
+
+        activeWindow = i;
+        windows[activeWindow].classList.remove("hidden");
+        windowButtons[activeWindow].classList.add("selected");
+    }, true);
+}
 
 let songsViewType = "line";
 songsHolder.classList.add("songLineStyle");
@@ -63,16 +97,6 @@ function sortByPlaybackCount(songs){
     return allSortedSongs;
 }
 
-function createElement(htmlString){
-    const tempElement = document.createElement("div");
-    tempElement.innerHTML = htmlString;
-
-    const element = tempElement.firstElementChild;
-    tempElement.removeChild(element);
-
-    return element;
-}
-
 HTMLElement.prototype.appendChildren = function(...args){
     for(const arg of args){
         this.appendChild(arg);
@@ -80,12 +104,12 @@ HTMLElement.prototype.appendChildren = function(...args){
 };
 
 function createEntries(songs, songsInfo){
-    console.log(songs);
-    console.log(songsInfo)
+    // console.log(songs);
+    // console.log(songsInfo);
 
     songsHolder.innerHTML = "";
     Object.keys(songs).forEach(key => {
-        console.log(songs[key].playbackCount);
+        // console.log(songs[key].playbackCount);
         const song = songs[key];
         const songId = song.songId;
         const songInfo = songsInfo[songId];
@@ -128,11 +152,65 @@ function createEntries(songs, songsInfo){
     });
 }
 
+function createHistogram(songs, songsInfo){
+    histogramElement.innerHTML = "";
+    histogramTextElement.innerHTML = "";
+    const histogram = Array.from({length: 24}, () => {return 0;});
+    const allSongs = [];
+    Object.keys(songs).forEach(sKey => {
+        const songDuration = songsInfo[songs[sKey].songId].duration;
+        for(let i = 0; i < songs[sKey].playbackCount; i++){
+            const time = new Date(songs[sKey].playedAt[i]);
+            const data = {
+                "time": time,
+                "playedAt": time.getTime(),
+                "id": songs[sKey].songId,
+                "duration": songDuration
+            };
+
+            data.end = data.playedAt + songDuration;
+
+            allSongs.push(data);
+        }
+    });
+    
+    allSongs.sort((a, b) => {return a.playedAt - b.playedAt});
+    console.log(allSongs);
+    const size = allSongs.length;
+    for(let i = 0; i < size; i++){
+        const song = allSongs[i];
+        let duration = song.duration;
+        // if(i + 1 != size){
+        //     if(allSongs[i + 1].playedAt < song.end){
+        //         duration = allSongs[i + 1].playedAt - song.playedAt;
+        //     }
+        // }
+        // const song = songs[sKey];
+        const time = song.time;
+        histogram[time.getHours()] += duration;
+    }
+
+    histogram.forEach((v,i) => {
+        const minutes = Math.min(v / (60 * 1000), 60);
+        const afk = (60 - minutes) / 60 * 100;
+        const el = createElement(`<div>
+            </div>`);
+        const text = createElement(`<div><p>${i}</p></div>`);
+        // el.style.paddingTop = `${afk}%`;
+        el.style.height = `${100 - afk}%`;
+        histogramElement.appendChild(el);
+        histogramTextElement.appendChild(text);
+        // const listenTime = 60 * 60 * 1000 - v;
+        // console.log();
+    });
+    console.log(histogram);
+}
+
 // first join all songs and sort them and apply filters if needed
 // TODO: sort by number of playes, artist
 // TODO: filters
 function createSongs(songs){
-    // console.log(songs);
+    console.log(songs);
     let allSongs = [];
     let numberOfSong = 0;
     // Object.keys(allOutputs.playedSongs).forEach((id) => {
@@ -149,6 +227,7 @@ function createSongs(songs){
     const songIds = Array.from(new Set(Object.keys(songs).map(songKey => songs[songKey].songId)));
     requestSongInfo(songIds, (songInfo) => {
         createEntries(songs, songInfo);
+        createHistogram(songs, songInfo);
     })
 }
 
@@ -182,9 +261,8 @@ function requestSavedSongs(dates){
     }).then((response) => {
         if(response.status == 200){
             // console.log(response);
-            response.json().then(a => {
-                console.log(a);
-                createSongs(a);
+            response.json().then(songs => {
+                createSongs(songs);
             });
         }
     }).catch(error => {

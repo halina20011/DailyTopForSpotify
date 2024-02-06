@@ -1,12 +1,18 @@
-const func = require('./func.js');
+// const func = require('./func.js');
+import func from "./func.js";
+import { TimeOut } from "./func.js";
 
-const https = require("https");
-const path = require("path");
-const { MongoClient } = require('mongodb');
-const express = require("express");
-const request = require("request");
+import https from "https";
+import path from "path";
+import {MongoClient} from "mongodb";
+import express from "express";
+import request from "request";
 
-const fs = require("fs");
+import fs from "fs";
+
+import {fileURLToPath} from "url"
+const __filenam = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filenam);
 
 const app = express();
 const port = 5000;
@@ -47,7 +53,7 @@ const accessTokenTimeLeft = () => {
 
 function setNextReqest(){
     const listenTimeApproximated = getListenTimeApproximated();
-    nextRequestTimer = new func.TimeOut(lastTracks, listenTimeApproximated);
+    nextRequestTimer = new TimeOut(lastTracks, listenTimeApproximated);
     func.log(`next request in ${listenTimeApproximated}ms in `);
 }
 
@@ -56,7 +62,7 @@ function setRefreshAccessTimeout(timeOutSeconds = refreshAccessTokenLifespan){
         nextRefreshAccessTokenTimer.clear();
     }
 
-    nextRefreshAccessTokenTimer = new func.TimeOut(requestRefreshedAccessToken, timeOutSeconds * 1000, undefined);
+    nextRefreshAccessTokenTimer = new TimeOut(requestRefreshedAccessToken, timeOutSeconds * 1000, undefined);
     func.log(`next refresh access token request in ${timeOutSeconds * 1000}ms`);
 }
 
@@ -283,18 +289,21 @@ function addSongs(data, callback, ...args){
     const lastTimestamp = new Date(lastPlayedSong).getTime();
 
     const toAdd = [];
+    const songsMap = new Map();
     Object.keys(jsonResponse.items).forEach(itemKey => {
         const item = jsonResponse.items[itemKey];
         const songId = item.track.id;
         const name = item.track.name;
+        
+        songsMap.set(songId, itemKey);
 
-        set.countDocuments({"songId": songId}, {limit: 1})
-        .then(size => {
-            if(size == 0){
-                func.log(`song "${name}" was firstly played`);
-                set.insertOne(new SongInfo(item.track));
-            }
-        });
+        // set.countDocuments({"songId": songId}, {limit: 1})
+        // .then(size => {
+        //     if(size == 0){
+        //         newSongs.set(songId, );
+        //         set.insertOne();
+        //     }
+        // });
 
         const playedAt = new Date(item.played_at);
         toAdd.push(new Song(songId, name, playedAt));
@@ -316,11 +325,35 @@ function addSongs(data, callback, ...args){
         // responseByDates[itemFolderTime].items.push(item);
     });
 
-    func.log(`retrieved ${toAdd.length} tracks`);
-    history.insertMany(toAdd);
+    const songsIdArray = Array.from(songsMap.keys());
 
-    infoLogAccess("write", Date.now(), lastTimestamp);
-    setNextReqest();
+    set.find({songId: {$in: songsIdArray}}).toArray()
+    .then(result => {
+        result.forEach(item => {
+            // console.log(`deleting ${item.songId}`);
+            songsMap.delete(item.songId);
+        });
+
+        if(songsMap.size != 0){
+            const newSongsInfo = [];
+            songsMap.forEach((value) => {
+                const item = jsonResponse.items[value];
+                const name = item.track.name;
+                func.log(`song "${name}" was firstly played`);
+                newSongsInfo.push(new SongInfo(item.track));
+            });
+
+            set.insertMany(newSongsInfo);
+        }
+    })
+
+    history.insertMany(toAdd).then(result => {
+        if(result.acknowledged == true){
+            func.log(`retrieved ${toAdd.length} tracks`);
+            infoLogAccess("write", Date.now(), lastTimestamp);
+            setNextReqest();
+        }
+    });
 
     if(callback){
         callback(...args);
@@ -372,20 +405,26 @@ function lastTracks(callback, ...args){
     }).end();
 }
 
-const routs = [
-    ["/", "/Html/index.html"],
-    ["/style.css", "/Html/style.css"],
-    ["/index.js", "/Html/index.js"],
-    ["/daySelector.js", "/Html/daySelector.js"]
-];
+// const routs = [
+//     ["/", "/Html/index.html"],
+//     ["/style.css", "/Html/style.css"],
+//     ["/song.css", "/Html/song.css"],
+//     ["/histogram.css", "/Html/histogram.css"],
+//     ["/index.js", "/Html/index.js"],
+//     ["/daySelector.css", "/Html/daySelector.css"],
+//     ["/daySelector.js", "/Html/daySelector.js"]
+// ];
+//
+// routs.forEach(rout => {
+//     app.get(rout[0], (req, res) => {
+//         res.sendFile(__dirname + rout[1]);
+//     });
+// });
 
-routs.forEach(rout => {
-    app.get(rout[0], (req, res) => {
-        res.sendFile(__dirname + rout[1]);
-    });
-});
 
 app.use('/Images', express.static(__dirname + "/Images"));
+
+app.use('/', express.static(__dirname + "/Html"));
 
 app.get('/api/lastTracks', (req, res) => {
     if(accessToken == "" || accessToken == null){
@@ -601,7 +640,7 @@ app.post("/api/songInfo", (req, res) => {
     .catch(error => {
         func.error(`error on quering songs: ${error}`);
         res.sendStatus(500);
-    })
+    });
 });
 
 app.post('/api/played', (req, res) => {

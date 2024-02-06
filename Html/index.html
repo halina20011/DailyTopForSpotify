@@ -5,6 +5,9 @@
         <meta charset="UTF-8">
         <link rel="icon" href="/Images/icon.svg" type="image/x-icon">
         <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0">
+        <link rel="stylesheet" href="song.css">
+        <link rel="stylesheet" href="daySelector.css">
+        <link rel="stylesheet" href="histogram.css">
         <link rel="stylesheet" href="style.css">
         <script defer type="module" src="index.js"></script>
     </head>
@@ -19,7 +22,17 @@
             <div class="leftColumn">
             </div>
             <div class="content">
-                <div class="songsHolder" id="songsHolder"></div>
+                <div class="previewType">
+                    <button class="songPreview">songs</button>
+                    <button class="histogramPreview">day histogram</button>
+                </div>
+                <div class="songsHolder"></div>
+                <div class="statsHolder">
+                    <div class="histogramHolder">
+                        <div class="histogram"></div>
+                        <div class="histogramText"></div>
+                    </div>
+                </div>
                 <div class="footer">
                     <p>Music data, artist images, album covers, and song previews are provided by Spotify. Spotify is a trademark of Spotify AB.</p>
                 </div>

@@ -1,0 +1,38 @@
+.statsHolder{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.histogramHolder{
+    position: relative;
+    width: 70%;
+    display: flex;
+    flex-direction: column;
+}
+
+.histogram, .histogramText{
+    display: inline-flex;
+    position: relative;
+    gap: 2px;
+    width: 100%;
+    background-color: #1c1a1a;
+}
+
+.histogram{
+    height: 200px;
+}
+
+.histogram > div{
+    background-color: #808080;
+}
+
+.histogramHolder > div > div{
+    position: relative;
+    flex: 1;
+    align-self: flex-end;
+}
+
+.histogramText > div > p{
+    text-align: center;
+}

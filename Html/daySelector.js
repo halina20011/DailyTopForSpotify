@@ -120,13 +120,13 @@ DaySelector.prototype.update = function(){
             text.innerText = dayDate.getDate();
             if(dayDate.sameDay(today)){
                 obj.button.classList.add("today");
-                obj.button.classList.add("selected");
+                obj.button.classList.add("selectedDay");
                 obj.state = true;
             }
         }
         const eventF = _ => {
             if(enabled){
-                obj.button.classList.toggle("selected");
+                obj.button.classList.toggle("selectedDay");
                 obj.state = !obj.state;
             }
         }
@@ -143,7 +143,7 @@ DaySelector.prototype.update = function(){
 DaySelector.prototype.select = function(date){
     if(this.monthWindow.sameMonth(date)){
         const day = date.getDate();
-        this.days[day].button.classList.add("selected");
+        this.days[day].button.classList.add("selectedDay");
         this.days[day].state = true;
     }
 }
