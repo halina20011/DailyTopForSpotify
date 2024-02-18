@@ -1,4 +1,4 @@
-import {DaySelector} from "./daySelector.js";
+import {DateSelector} from "./daySelector.js";
 
 console.log("I live <3");
 
@@ -152,11 +152,17 @@ function createEntries(songs, songsInfo){
     });
 }
 
-function createHistogram(songs, songsInfo){
+function createHistogram(songs, songsInfo, dates){
+    dates.sort((a,b) => a - b);
+    const lastDate = dates[dates.length - 1];
+    const daysMaxDifference = Math.ceil(Math.abs(dates[0] - lastDate) / (1000 * 60 * 60 * 24));
+    
     histogramElement.innerHTML = "";
     histogramTextElement.innerHTML = "";
+
     const histogram = Array.from({length: 24}, () => {return 0;});
     const allSongs = [];
+
     Object.keys(songs).forEach(sKey => {
         const songDuration = songsInfo[songs[sKey].songId].duration;
         for(let i = 0; i < songs[sKey].playbackCount; i++){
@@ -179,7 +185,7 @@ function createHistogram(songs, songsInfo){
     const size = allSongs.length;
     for(let i = 0; i < size; i++){
         const song = allSongs[i];
-        let duration = song.duration;
+        const duration = song.duration;
         // if(i + 1 != size){
         //     if(allSongs[i + 1].playedAt < song.end){
         //         duration = allSongs[i + 1].playedAt - song.playedAt;
@@ -209,26 +215,14 @@ function createHistogram(songs, songsInfo){
 // first join all songs and sort them and apply filters if needed
 // TODO: sort by number of playes, artist
 // TODO: filters
-function createSongs(songs){
+function createSongs(songs, dates){
     console.log(songs);
-    let allSongs = [];
-    let numberOfSong = 0;
-    // Object.keys(allOutputs.playedSongs).forEach((id) => {
-    //     const output = allOutputs[outputKey];
-    //     const playedSongs = output.playedSongs;
-    //     Object.keys(playedSongs).forEach((i) => {
-    //         allSongs.push(playedSongs[i]);
-    //     });
-    //     numberOfSong += output.numberOfSongs;
-    // });
-    // console.log(allSongs);
-    // allOutputs.allSongs 
     songs = sortByPlaybackCount(songs);
     const songIds = Array.from(new Set(Object.keys(songs).map(songKey => songs[songKey].songId)));
     requestSongInfo(songIds, (songInfo) => {
         createEntries(songs, songInfo);
-        createHistogram(songs, songInfo);
-    })
+        createHistogram(songs, songInfo, dates);
+    });
 }
 
 function dateStamp(date){
@@ -248,9 +242,9 @@ function requestSavedSongs(dates){
         dates = [dates];
     }
 
-    dates = dates.map(date => dateStamp(date));
+    const reqDates = dates.map(date => dateStamp(date));
 
-    const datesObj = {"dates": dates};
+    const datesObj = {"dates": reqDates};
     fetch("/api/played", {
         method: "POST",
         cache: "no-cache",
@@ -262,7 +256,7 @@ function requestSavedSongs(dates){
         if(response.status == 200){
             // console.log(response);
             response.json().then(songs => {
-                createSongs(songs);
+                createSongs(songs, dates);
             });
         }
     }).catch(error => {
@@ -294,12 +288,11 @@ function requestSongInfo(songIds, callback, ...args){
 }
 
 const leftColumn = document.querySelector(".leftColumn");
-const daySelector = new DaySelector(leftColumn, new Date());
+const daySelector = new DateSelector(leftColumn, new Date());
 daySelector.submit.addEventListener("click", _ => {
     const selected = daySelector.selected();
     console.log(typeof selected[0]);
     requestSavedSongs(selected);
-    // console.log("UwU");
 }, false);
 
 requestSavedSongs(new Date());

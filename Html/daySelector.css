@@ -1,4 +1,4 @@
-.daySelectorHolder{
+.dateSelector{
     width: 100%;
     overflow: hidden;
     max-width: 300px;
@@ -8,7 +8,7 @@
     box-sizing: border-box;
 }
 
-.daySelectorHolder > .settings{
+.dateSelector > .settings{
     width: 100%;
     display: flex;
     justify-content: space-between;
@@ -32,14 +32,14 @@
     background-size: 100%;
 }
 
-.daySelector{
+.dayHolder{
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 5px;
     padding: 10px;
 }
 
-.daySelector > .day{
+.dayHolder > .day{
     aspect-ratio: 1/1;
     background-color: white;
     border-radius: 5px;
@@ -49,11 +49,11 @@
     overflow: hidden;
 }
 
-.daySelector > div > p{
+.dayHolder > div > p{
     user-select: none;
 }
 
-.daySelectorHolder > .submit{
+.dateSelector > .submit{
     width: fit-content;
     margin-left: auto;
     padding: 2px;
