@@ -288,11 +288,8 @@ function requestSongInfo(songIds, callback, ...args){
 }
 
 const leftColumn = document.querySelector(".leftColumn");
-const daySelector = new DateSelector(leftColumn, new Date());
-daySelector.submit.addEventListener("click", _ => {
-    const selected = daySelector.selected();
-    console.log(typeof selected[0]);
+new DateSelector(leftColumn, new Date(), (selected) => {
     requestSavedSongs(selected);
-}, false);
+});
 
 requestSavedSongs(new Date());

@@ -1,3 +1,21 @@
+let shift = false;
+let prevSelected = null;
+
+document.addEventListener("keydown", (e) => {
+    if(e.key == "Shift"){
+        shift = true;
+        // console.log("down");
+    }
+});
+
+document.addEventListener("keyup", (e) => {
+    if(e.key == "Shift"){
+        shift = false;
+        // console.log("up");
+        prevSelected = null;
+    }
+});
+
 Date.prototype.previousMonth = function(){
     const prevMonth = new Date(this);
     prevMonth.setMonth(prevMonth.getMonth() - 1);
@@ -48,11 +66,12 @@ function monthHash(date){
 }
 
 class DaySelector{
-    constructor(date, selectedDays, parent){
+    constructor(date, selectedDays, parent, days){
         this.date = date;
         this.enabled = (date != null);
         this.selected = false;
         this.selectedDays = selectedDays;
+        this.days = days;
 
         const dText = (this.enabled) ? this.date.getDate() : "";
         this.element = createElement(`<div class="day"><p>${dText}</p></div>`);
@@ -60,13 +79,32 @@ class DaySelector{
 
         if(this.enabled){
             this.element.addEventListener("click", () => {
-                this.element.classList.toggle("selectedDay");
-                this.selected = !this.selected;
-                if(this.selected){
-                    this.selectedDays.add(this);
+                if(shift === true){
+                    // console.log(this, prevSelected);
+                    if(prevSelected && prevSelected.date != this.date){
+                        let start = prevSelected.date.getDate() - 1;
+                        let end = this.date.getDate() - 1;
+                        if(end < start){
+                            [start, end] = [end, start];
+                        }
+                        // console.log(start, end);
+                        for(let i = start; i <= end; i++){
+                            if(!this.days[i].selected){
+                                this.days[i].select();
+                            }
+                        }
+                    }
+
+                    prevSelected = this;
+                    // console.log(prevSelected);
                 }
                 else{
-                    this.selectedDays.delete(this);
+                    if(this.selected){
+                        this.unselect();
+                    }
+                    else{
+                        this.select();
+                    }
                 }
             }, false);
         }
@@ -81,7 +119,7 @@ class DaySelector{
     unselect(){
         this.selectedDays.delete(this);
         this.element.classList.remove("selectedDay");
-        this.selected = true;
+        this.selected = false;
     }
 }
 
@@ -113,7 +151,7 @@ class MonthSelector{
         this.start = this.date.getFirstDay();
         this.end = this.start + this.numberOfDays;
         
-        this.days = Array.from({length: this.end});
+        this.days = [];
         const today = new Date();
 
         for(let i = 0; i < this.end; i++){
@@ -124,14 +162,15 @@ class MonthSelector{
                 dayDate = new Date(this.date);
                 dayDate.setDate(i - this.start + 1);
             }
-            const dayHolder = new DaySelector(dayDate, this.selectedDays, this.dayHolder);
+            const dayHolder = new DaySelector(dayDate, this.selectedDays, this.dayHolder, this.days);
 
-            if(enabled && dayDate.sameDay(today)){
-                dayHolder.element.classList.add("today");
-                dayHolder.select();
+            if(enabled){
+                if(dayDate.sameDay(today)){
+                    dayHolder.element.classList.add("today");
+                    dayHolder.select();
+                }
+                this.days.push(dayHolder);
             }
-            
-            this.days[i] = dayHolder;
         }
     }
 
@@ -145,16 +184,16 @@ class MonthSelector{
 }
 
 export class DateSelector{
-    constructor(parentElement, monthWindow){
+    constructor(parentElement, monthWindow, submitFunc){
         this.parentElement = parentElement;
         
         this.monthWindow = (!monthWindow) ? new Date() : monthWindow;
-        // this.monthSelector = new MonthSelector(this.monthWindow);
+        this.monthSelector = null;
         
         this.selectedDays = new Set();
         this.months = new Map();
         
-        this.settings = createElement(`
+        const settings = createElement(`
             <div class="settings">
                 <button class="previousMonth"></button>
                 <p class="monthName"></p>
@@ -162,16 +201,16 @@ export class DateSelector{
             </div>
         `);
 
-        this.monthNameElement = this.settings.querySelector(".monthName");
+        this.monthNameElement = settings.querySelector(".monthName");
 
-        this.previousMonth = this.settings.querySelector(".previousMonth");
+        this.previousMonth = settings.querySelector(".previousMonth");
         this.previousMonth.addEventListener("click", () => {
             this.monthSelector.disable();
             this.monthWindow = this.monthWindow.previousMonth();
             this.updateMonth();
         }, false);
 
-        this.nextMonth = this.settings.querySelector(".nextMonth");
+        this.nextMonth = settings.querySelector(".nextMonth");
         this.nextMonth.addEventListener("click", () => {
             this.monthSelector.disable();
             this.monthWindow = this.monthWindow.nextMonth();
@@ -182,11 +221,24 @@ export class DateSelector{
         this.dateSelectorHolder = document.createElement("div");
         this.dateSelectorHolder.className = "dateSelector";
         
-        this.submit = createElement(`<button class="submit">submit</button>`);
+        const buttonHolder = createElement(`<div class="buttonHolder">
+                <button class="clear">clear</button>
+                <button class="submit">submit</button>
+            </div>`);
 
-        console.log(this.parentElement);
+        buttonHolder.querySelector(".clear").addEventListener("click", () => {
+            this.monthSelector.days.forEach(daySelector => {
+                if(daySelector.selected){
+                    daySelector.unselect();
+                }
+            })
+        });
+
+        buttonHolder.querySelector(".submit").addEventListener("click", () => {submitFunc(this.selected())});
+
         this.parentElement.appendChild(this.dateSelectorHolder);
-        [this.settings, this.monthSelectorHolder, this.submit].forEach(e => this.dateSelectorHolder.appendChild(e));
+        
+        [settings, this.monthSelectorHolder, buttonHolder].forEach(e => this.dateSelectorHolder.appendChild(e));
 
         this.updateMonth();
     }

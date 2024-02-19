@@ -53,9 +53,14 @@
     user-select: none;
 }
 
-.dateSelector > .submit{
+.buttonHolder{
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+}
+
+.buttonHolder > *{
     width: fit-content;
-    margin-left: auto;
     padding: 2px;
 }
 

@@ -1,23 +1,22 @@
 {
-  "name": "spotify",
-  "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
-  "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "startFront": "browser-sync start --proxy localhost:5000 --files Html/**/*",
-    "dev": "nodemon --ext 'js' --watch ./ server.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "express": "^4.18.2",
-    "http": "^0.0.1-security",
-    "mongodb": "^6.3.0",
-    "nodemon": "^3.0.3",
-    "request": "^2.88.2"
-  }
+    "name": "DailyTopForSpotify",
+    "version": "1.0.0",
+    "description": "",
+    "main": "server.js",
+    "type": "module",
+    "scripts": {
+        "front": "browser-sync start --proxy localhost:5000 --files Html/**/*",
+        "back": "nodemon --ext 'js' --watch ./ server.js",
+        "production": "forever start server.js"
+    },
+    "keywords": [],
+    "author": "halina20011",
+    "license": "GNU General Public License v3.0",
+    "dependencies": {
+        "express": "^4.18.2",
+        "http": "^0.0.1-security",
+        "mongodb": "^6.3.0",
+        "nodemon": "^3.0.3",
+        "request": "^2.88.2"
+    }
 }

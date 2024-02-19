@@ -31,8 +31,8 @@ let lastTokenRequest;
 let nextRefreshAccessTokenTimer = null;
 let nextRequestTimer = null;
 
-const configFile = __dirname + "/config.json";
-const loginFile = __dirname + "/login.json";
+const configFile = __dirname + "/Data/config.json";
+const loginFile = __dirname + "/Data/login.json";
 const infoLog = __dirname + "/Data/infoLog.json";
 
 const scope = "streaming user-read-email user-read-private user-read-recently-played";
@@ -115,7 +115,6 @@ function saveLogin(){
         (error) => {func.log(`error writing to ${loginFile} ${error}`)}
     );
 }
-
 
 function infoLogAccess(action, lastRequest = undefined, lastTimestamp = undefined){
     // func.log("trying to access infoLog");
@@ -297,32 +296,8 @@ function addSongs(data, callback, ...args){
         
         songsMap.set(songId, itemKey);
 
-        // set.countDocuments({"songId": songId}, {limit: 1})
-        // .then(size => {
-        //     if(size == 0){
-        //         newSongs.set(songId, );
-        //         set.insertOne();
-        //     }
-        // });
-
         const playedAt = new Date(item.played_at);
         toAdd.push(new Song(songId, name, playedAt));
-
-        // const playedAt = new Date(item.played_at);
-        // const itemFolderTime = func.getFolderName(playedAt);
-        // if(responseByDates[itemFolderTime] == undefined){
-        //     responseByDates[itemFolderTime] = {
-        //         items: [],
-        //         next: jsonResponse.next,
-        //         cursors: {
-        //             "after" : `${playedAt.getTime()}`,
-        //             "before" : jsonResponse.cursors.before
-        //         },
-        //         limit: jsonResponse.limit,
-        //         href: jsonResponse.href
-        //     };
-        // }
-        // responseByDates[itemFolderTime].items.push(item);
     });
 
     const songsIdArray = Array.from(songsMap.keys());
@@ -405,28 +380,10 @@ function lastTracks(callback, ...args){
     }).end();
 }
 
-// const routs = [
-//     ["/", "/Html/index.html"],
-//     ["/style.css", "/Html/style.css"],
-//     ["/song.css", "/Html/song.css"],
-//     ["/histogram.css", "/Html/histogram.css"],
-//     ["/index.js", "/Html/index.js"],
-//     ["/daySelector.css", "/Html/daySelector.css"],
-//     ["/daySelector.js", "/Html/daySelector.js"]
-// ];
-//
-// routs.forEach(rout => {
-//     app.get(rout[0], (req, res) => {
-//         res.sendFile(__dirname + rout[1]);
-//     });
-// });
-
-
 app.use('/Images', express.static(__dirname + "/Images"));
-
 app.use('/', express.static(__dirname + "/Html"));
 
-app.get('/api/lastTracks', (req, res) => {
+app.get('/api/lastTracks', (_req, res) => {
     if(accessToken == "" || accessToken == null){
         res.status(400).send("accessToken is invalid please login first");
         return;
@@ -438,7 +395,7 @@ app.get('/api/lastTracks', (req, res) => {
     res.redirect('/');
 });
 
-app.get('/api/info', (req, res) => {
+app.get('/api/info', (_req, res) => {
     const lastRequest = infoLogAccess("read").lastRequest;
     const lastTrack = infoLogAccess("read").lastTrack;
     const aTTLU = accessTokenTimeLeft();
@@ -465,85 +422,6 @@ function createSongInfo(item){
         numberOfPlaybacks: 1,
         playedAt: item.played_at
     }
-}
-
-// join the songs into output.json
-// if the folder exists procede
-// get all files songs files
-// for every file in the folder loop throw all songs that were played 
-function makeOutput(folderName){
-    if(fs.existsSync(folderName)){
-        const files = func.getFiles(fs, path, folderName);
-        if(files.length <= 0){
-            func.log(`there are files in ${folderName}`);
-            return [false, {}];
-        }
-
-        const outputFile = `${folderName}/output.json`;
-        if(fs.existsSync(outputFile)){
-            const oldOutput = func.tryJsonParse(fs.readFileSync(outputFile));
-            if(files.length == oldOutput.numberOfFiles){
-                func.log(`there are no changes that should be made to ${outputFile}`);
-                return [true, oldOutput];
-            }
-            else{
-                func.log(`${outputFile} is obsolete, it should be updated`);
-            }
-        }
-        const output = {
-            numberOfFiles: 0,
-            totalPlaybackCount: 0,
-            numberOfSongs: 0,
-            allSongs: {},
-        }
-
-        func.log(`number of files in ${folderName} is ${files.length}`);
-
-        let totalPlaybackCount = 0;
-        let numberOfSongs = 0;
-
-        files.forEach((file) => {
-            const fileFullPath = `${folderName}/${file}`;
-            func.log(`processing ${file}...`);
-            const fileContent = func.tryJsonParse(fs.readFileSync(fileFullPath));
-
-            if(fileContent == null){
-                func.log(`error file content of ${fileFullPath} is undefined`);
-            }
-            else{
-                fileContent.items.forEach((item, i) => {
-                    const song = createSongInfo(item);
-                    if(output.allSongs[song.id] == null){
-                        output.allSongs[song.id] = song;
-                        output.allSongs[song.id].playedAt = [song.playedAt];
-                        numberOfSongs++;
-                    }
-                    else{
-                        output.allSongs[song.id].playedAt.push(song.playedAt);
-                        output.allSongs[song.id].numberOfPlaybacks++;
-                    }
-                    totalPlaybackCount++;
-                });
-            }
-        });
-        
-        output.numberOfFiles = files.length;
-        output.numberOfSongs = numberOfSongs;
-        output.totalPlaybackCount = totalPlaybackCount;
-
-        const status = func.writeToFile(
-            fs,
-            outputFile,
-            JSON.stringify(output),
-            () => {func.log(`${outputFile} was updated`)},
-            (error) => {func.log(`error writing to ${outputFile} ${error}`)}
-        );
-
-        return [status, output];
-    }
-
-    func.log(`error when trying to create output.js from non existing folder ${folderName}`);
-    return [false, {}];
 }
 
 function getSongInfo(ids, onSuccess, songInfo, onError){
@@ -676,29 +554,7 @@ app.post('/api/played', (req, res) => {
     .catch(error => {
         func.error(`error on quering songs: ${error}`);
         res.sendStatus(500);
-    })
-
-    // let status, output;
-    // for(let i = 0; i < dates.length; i++){
-    //     const date = new Date(dates[i]);
-    //     const folderName = `${__dirname}/Data/${func.getFolderName(date)}`;
-    //     [status, output] = makeOutput(folderName);
-    //     if(status == true && output != undefined && output != {}){
-    //         Object.keys(output.allSongs).forEach((id) => {
-    //             const song = output.allSongs[id];
-    //             if(allOutputs.allSongs[id] == undefined){
-    //                 allOutputs.allSongs[id] = song;
-    //             }
-    //             else{
-    //                 allOutputs.allSongs[id].playedAt = allOutputs.allSongs[id].playedAt.concat(song.playedAt);
-    //                 allOutputs.allSongs[id].numberOfPlaybacks += song.numberOfPlaybacks;
-    //             }
-    //         });
-    //         allOutputs.numberOfSongs += output.numberOfSongs;
-    //         allOutputs.totalPlaybackCount += output.totalPlaybackCount;
-    //     }
-    // }
-
+    });
 });
 
 const server = app.listen(port, () => {
