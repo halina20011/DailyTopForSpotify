@@ -17,8 +17,7 @@ const __dirname = path.dirname(__filenam);
 const app = express();
 const port = 5000;
 
-const uri = "mongodb://localhost:27017";
-const client = new MongoClient(uri);
+let dataBaseUri;
 
 let spotifyClientId;
 let spotifyClientSecret;
@@ -35,14 +34,22 @@ const configFile = __dirname + "/Data/config.json";
 const loginFile = __dirname + "/Data/login.json";
 const infoLog = __dirname + "/Data/infoLog.json";
 
-const scope = "streaming user-read-email user-read-private user-read-recently-played";
+const scope = "user-read-recently-played user-top-read";
 
 app.use(express.json());
 
-const oneTrackApproxTime = 2 * 60;
+let oneTrackApproxTime = null;
+const defaultOneTrackApproxTime = 2.5;
 // apriximate how long it would take to listen to 50 songs
-const getListenTimeApproximated = () => {return oneTrackApproxTime * 50 * 1000};
-// lifespa of access Token in minutes
+const getListenTimeApproximated = () => {
+    if(oneTrackApproxTime == null){
+        oneTrackApproxTime = defaultOneTrackApproxTime;
+    }
+    // from minutes to seconds *60 to milliseconds *1000
+    return oneTrackApproxTime * 60 * 50 * 1000;
+};
+
+// lifespan of access Token in minutes
 const refreshAccessTokenLifespan = 45 * 60;
 
 const accessTokenTimeLeft = () => {
@@ -67,23 +74,25 @@ function setRefreshAccessTimeout(timeOutSeconds = refreshAccessTokenLifespan){
 }
 
 function loadConfig(){
-    func.log("loading config file");
+    func.log("loading config file...");
     let data = {};
     if(fs.existsSync(configFile)){
         const fileContent = fs.readFileSync(configFile);
         data = func.tryJsonParse(fileContent);
     }
     else{
+        func.error("failed to load config, exiting...");
         process.exit(1);
     }
 
+    dataBaseUri = data["DATABASE_URI"];
     spotifyClientId = data["SPOTIFY_CLIENT_ID"];
     spotifyClientSecret = data["SPOTIFY_CLIENT_SECRET"];
     spotifyRedirectUri = data["SPOTIFY_REDIRECT_URI"];
 }
 
 function loadLogin(){
-    func.log("loading login file");
+    func.log("loading login file...");
     if(fs.existsSync(loginFile)){
         const fileContent = fs.readFileSync(loginFile);
         const data = func.tryJsonParse(fileContent);
@@ -143,7 +152,7 @@ function infoLogAccess(action, lastRequest = undefined, lastTimestamp = undefine
 
 // Spotify
 const loginPath = "/auth/login";
-app.get(loginPath, (req, res) => {
+app.get(loginPath, (_req, res) => {
     func.log(`${loginPath} was accessed`);
     const state = func.generateRandomString(16);
     
@@ -289,6 +298,7 @@ function addSongs(data, callback, ...args){
 
     const toAdd = [];
     const songsMap = new Map();
+    let durationSum = 0, numberOfSongs = 0;
     Object.keys(jsonResponse.items).forEach(itemKey => {
         const item = jsonResponse.items[itemKey];
         const songId = item.track.id;
@@ -298,7 +308,23 @@ function addSongs(data, callback, ...args){
 
         const playedAt = new Date(item.played_at);
         toAdd.push(new Song(songId, name, playedAt));
+        
+        durationSum += item.track.duration_ms;
+        numberOfSongs++;
     });
+
+    if(20 < numberOfSongs){
+        const durationSumInMinutes = durationSum / (1000 * 60);
+        func.log(`recalculating new oneTrackApproxTime from ${numberOfSongs} tracks with duration sum ${durationSumInMinutes}min (${durationSum}ms)`);
+        const newOneTrackApproxTime = (durationSumInMinutes / numberOfSongs).toFixed(2);
+        if(1 < newOneTrackApproxTime){
+            oneTrackApproxTime = newOneTrackApproxTime;
+            func.log(`new oneTrackApproxTime = ${newOneTrackApproxTime}`);
+        }
+        else{
+            func.error(`new oneTrackApproxTime is to small ${newOneTrackApproxTime}`);
+        }
+    }
 
     const songsIdArray = Array.from(songsMap.keys());
 
@@ -567,6 +593,7 @@ const server = app.listen(port, () => {
 //  set: each song has data that will repeat (as song id, artist, release date, uri...)
 //      every time new song is played
 //
+//  TODO:
 //  summary: each day will have 
 //      total listen time
 //      total number of listened songs
@@ -574,47 +601,44 @@ const server = app.listen(port, () => {
 //          first frequency 
 //          if frequency matches then the longer song wins
 
-//  .
-//  ├── config.json
-//  ├── infoLog.json
-//  └── Data
-//      └── ddmmyyyy
-//          ├── 0.json              first request on this day
-//          ├── 1.json              second request on this day
-//          └── output.js           all the request combined without usless info like "available_markets"
+ // .
+ // ├── config.json
+ // ├── infoLog.json
+ // └── Data
+ //     ├── config.json
+ //     ├── infoLog.json
+ //     └── login.json
 //  
 //  infoLog.json:
 //  {
 //      "lastTrack": unixTimestamp,
+//      "lastRequest", unixTimestamp,
 //  }
 //
 //  on start, load the config
-//      if any of spotify settings is invalid or missing exit the program
-//      if there is an refresh access token try to log with it
-//      
-//      wait for the user to log in
+//      if it failes, exit
 //  
-//  after successfull log in make request to spotify to get lastTracks
-//      
-//      if this is the first request this day create a ddmmyyyy foldrer
+//  load the infoLog
+//      if it has "accessToken" no manual login is required
+//      else wait for the user to log in
+//
+//      if it has "refreshAccessToken" and the "lastTokenRequest" is in the window of validity use it
+//      else request new refreshAccessToken
 //  
-//      access the infoLog and find the timestamp of last saved song
-//      request last 50 songs from spotify played after the timestamp
-//      (if the timestamp wasn found make and request with before this time)
-//      200
+//  TODO:
+//  if we have access to API (valid requestToken) read the infoLog to get lastRequest
+//      if the lastRequest + time to listen to 50 songs is smaller then curr time 
+//          request the lastTracks
+//      else set up timer and wait
 //
-//      if the timestamp has different day then is current day then split the response
-//      to the correct ddmmyyyy folder with the name asociated with its index
-//      before saving the response check if
-//      save all songs and create the timestamp for next request
-//
-//
-//  front-end
-// TODO: clear songs that have been played only few times
 
 const dbName = "dailyTopForSpotify";
 
 let db, history, set;
+
+loadConfig();
+
+const client = new MongoClient(dataBaseUri);
 
 client.connect().then(_ => {
     func.log("database connected");
@@ -622,7 +646,6 @@ client.connect().then(_ => {
     history = db.collection("history");
     set = db.collection("set");
 
-    loadConfig();
     loadLogin();
     if(refreshAccessToken != "" && refreshAccessToken != null){
         func.log(`refresh access token was found`);
@@ -639,8 +662,3 @@ client.connect().then(_ => {
         func.log(`invalid refresh access token, waiting for user to log in on ${loginPath}`);
     }
 }).catch(error => func.error(`failed to connect to database: ${error}`));
-
-
-// setInterval(() => {
-//     
-// }, 1000 * 60);

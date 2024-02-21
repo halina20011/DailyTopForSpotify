@@ -3,13 +3,19 @@
     justify-content: end;
 }
 
-.toggleSongLineStyle, .toggleSongBoxStyle{
+.toggleSongSmallLineStyle, 
+.toggleSongLineStyle, 
+.toggleSongBoxStyle{
     border-radius: 5px;
     background-size: 100%;
     background-color: transparent;
     border: none;
     width: 50px;
     height: 50px;
+}
+
+.toggleSongSmallLineStyle{
+    background-image: url("/Images/lineSmallStyleIcon.svg");
 }
 
 .toggleSongBoxStyle{
@@ -52,23 +58,34 @@
     text-overflow: ellipsis;
 }
 
+.image{
+    border-radius: 10px;
+}
+
 /* #############################################################*/
-/*                      SONG LINE STYLE                         */
+/*                         SONG STYLES                          */
 /* #############################################################*/
-.songLineStyle{
+.songLineStyle, .songLineSmallStyle{
     display: flex;
     flex-direction: column;
 }
 
-.songLineStyle > .song > .firstLine{
+.songLineStyle > .song > .firstLine,
+.songLineSmallStyle > .song > .firstLine{
     position: relative;
     display: flex;
     gap: 10px;
 }
 
-/* i cant use round borders qwq
- * https://developer.spotify.com/documentation/design#using-our-content
-*/
+.songLineStyle > .song .playbackCountElement,
+.songBoxStyle > .song .playbackCountElement{
+    display: none;
+}
+
+/* #############################################################*/
+/*                      SONG LINE STYLE                         */
+/* #############################################################*/
+
 .songLineStyle .image{
     width: 8vw; 
     aspect-ratio: 1/1;
@@ -101,16 +118,42 @@
 }
 
 /* #############################################################*/
+/*                      SONG SMALL LINE STYLES                  */
+/* #############################################################*/
+.playbackCountElement{
+    display: flex;
+    margin-left: auto;
+    align-items: center;
+    font-size: 25px;
+}
+
+.songLineSmallStyle .image{
+    width: 6vw; 
+    aspect-ratio: 1/1;
+}
+
+.songLineSmallStyle > .song > .playedAtHolder{
+    display: none;
+}
+
+/* #############################################################*/
 /*                       SONG BOX STYLE                         */
 /* #############################################################*/
 .songBoxStyle{
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.songBoxStyle > .song{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .songBoxStyle > .song > .firstLine{
     display: flex;
     flex-direction: column-reverse;
+    gap: 5px;
 }
 
 .songBoxStyle .image{

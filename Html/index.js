@@ -21,12 +21,13 @@ function createElement(html){
 }
 
 const songsHolder = document.querySelector(".songsHolder");
-const statsHolder = document.querySelector(".statsHolder");
+const statisticsHolder = document.querySelector(".statisticsHolder");
+const spotifyTopItemsHolder = document.querySelector(".spotifyTopItemsHolder");
 const histogramElement = document.querySelector(".histogram");
 const histogramTextElement = document.querySelector(".histogramText");
 
-const windowButtons = [".songPreview", ".histogramPreview"].map(bName => document.querySelector(bName));
-const windows = [songsHolder, statsHolder];
+const windowButtons = [".songPreview", ".statisticsPreview", ".spotifyTopItems"].map(bName => document.querySelector(bName));
+const windows = [songsHolder, statisticsHolder, spotifyTopItemsHolder];
 let activeWindow = 0;
 
 for(let i = windows.length - 1; i >= 0; i--){
@@ -40,25 +41,25 @@ for(let i = windows.length - 1; i >= 0; i--){
     }, true);
 }
 
-let songsViewType = "line";
-songsHolder.classList.add("songLineStyle");
-const toggleSongLineStyle = document.querySelector(".toggleSongLineStyle");
-toggleSongLineStyle.addEventListener("click", () => {
-    songsViewType = "line";
-    songsHolder.classList.add("songLineStyle");
-    songsHolder.classList.remove("songBoxStyle");
-    toggleSongLineStyle.classList.add("active");
-    toggleSongBoxStyle.classList.remove("active");
-}, false);
+let prevPreview = null;
+const previewStyles = ["songLineSmallStyle", "songLineStyle", "songBoxStyle"];
+const previewStylesButtons = [".toggleSongSmallLineStyle", ".toggleSongLineStyle", ".toggleSongBoxStyle"].map((buttonClassName, i) => {
+    const button = document.querySelector(buttonClassName);
+    button.addEventListener("click", () => {
+        if(prevPreview){
+            prevPreview.classList.remove("active");
+            songsHolder.className = "songsHolder";
+        }
 
-const toggleSongBoxStyle = document.querySelector(".toggleSongBoxStyle");
-toggleSongBoxStyle.addEventListener("click", () => {
-    songsViewType = "box";
-    songsHolder.classList.add("songBoxStyle");
-    songsHolder.classList.remove("songLineStyle");
-    toggleSongBoxStyle.classList.add("active");
-    toggleSongLineStyle.classList.remove("active");
-}, false);
+        songsHolder.classList.add(previewStyles[i]);
+        button.classList.add("active");
+        prevPreview = button;
+    });
+
+    return button;
+});
+
+previewStylesButtons[0].click();
 
 Date.prototype.format = function(){
     const year = this.getFullYear();
@@ -72,7 +73,7 @@ Date.prototype.format = function(){
 }
 
 Date.prototype.yesterday = function(){
-    let _yesterday = new Date(this);
+    const _yesterday = new Date(this);
     _yesterday.setHours(_yesterday.getHours() - 24);
     return _yesterday;
 }
@@ -123,6 +124,9 @@ function createEntries(songs, songsInfo){
                     <div class="songName">${song.name}</div>
                     <div class="artistNames">${artists}</div>
                 </div>
+                <div class="playbackCountElement">
+                    <p>${song.playbackCount}</p>
+                </div>
             </div>
             <div class="playedAtHolder">
                 <div class="playedAtInfo">
@@ -135,8 +139,8 @@ function createEntries(songs, songsInfo){
 
                     // <p>${song.numberOfPlaybacks}</p>
         const playedAtEl = songElement.querySelector("#playedAt");
-        const playedAtHolder = songElement.querySelector(".playedAtHolder");
-        playedAtHolder.addEventListener("click", () => {
+        const playedAtInfo = songElement.querySelector(".playedAtInfo");
+        playedAtInfo.addEventListener("click", () => {
             playedAtEl.classList.toggle("hidden");
         }, false);
 
@@ -226,7 +230,7 @@ function createSongs(songs, dates){
 }
 
 function dateStamp(date){
-    console.log(date);
+    // console.log(date);
     const d = String(date.getDate()).padStart(2, '0');
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const y = String(date.getFullYear());

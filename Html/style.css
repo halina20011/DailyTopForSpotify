@@ -81,7 +81,7 @@ body{
     background-color: #151515;
 }
 
-.songsHolder, .statsHolder{
+.songsHolder, .statisticsHolder, .spotifyTopItemsHolder{
     position: relative;
     box-sizing: border-box;
     min-height: calc(100% - var(--footerHeight) - var(--previewTypeHeight));
