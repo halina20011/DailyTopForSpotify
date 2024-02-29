@@ -1,4 +1,5 @@
 import {DateSelector} from "./daySelector.js";
+import {SongSelector} from "./songSelector.js";
 
 console.log("I live <3");
 
@@ -19,6 +20,9 @@ function createElement(html){
 
     return element;
 }
+
+const songSelectorHolder = document.querySelector(".songSelectorHolder");
+const songSelector = new SongSelector(songSelectorHolder);
 
 const songsHolder = document.querySelector(".songsHolder");
 const statisticsHolder = document.querySelector(".statisticsHolder");
@@ -120,9 +124,12 @@ function createEntries(songs, songsInfo){
         songElement.innerHTML = `
             <div class="firstLine">
                 <img class="image" src="${image}" alt="${song.name}">
-                <div>
+                <div class="songContent">
                     <div class="songName">${song.name}</div>
                     <div class="artistNames">${artists}</div>
+                    <div class="buttons">
+                        <button class="selectSong">select</button>
+                    </div>
                 </div>
                 <div class="playbackCountElement">
                     <p>${song.playbackCount}</p>
@@ -137,12 +144,23 @@ function createEntries(songs, songsInfo){
             </div>
         `;
 
-                    // <p>${song.numberOfPlaybacks}</p>
         const playedAtEl = songElement.querySelector("#playedAt");
         const playedAtInfo = songElement.querySelector(".playedAtInfo");
         playedAtInfo.addEventListener("click", () => {
             playedAtEl.classList.toggle("hidden");
         }, false);
+
+        const selectorElement = createElement(`<div class="songSelectorItem">
+                <img class="image" src="${image}" alt="${song.name}">
+                <div style="display: flex; flex-direction: column;">
+                    <div class="songSelectorSongName">${song.name}</div>
+                    <button class="removeSelectedSong button">remove</button>
+                </div>
+            </div>`);
+
+        const selectorRemoveButton = selectorElement.querySelector(".removeSelectedSong");
+        const songElementInfo = {button: songElement.querySelector(".selectSong"), state: false, element: selectorElement};
+        songSelector.addSelector(songElementInfo, songId, selectorRemoveButton);
 
         const playedAt = song.playedAt.map(d => new Date(d));
         playedAt.sort((a, b) => b.getTime() - a.getTime());
@@ -197,10 +215,12 @@ function createHistogram(songs, songsInfo, dates){
         // }
         // const song = songs[sKey];
         const time = song.time;
+        // console.log(time.getHours(), song.time);
         histogram[time.getHours()] += duration;
     }
 
     histogram.forEach((v,i) => {
+        // console.log(v, i);
         const minutes = Math.min(v / (60 * 1000), 60);
         const afk = (60 - minutes) / 60 * 100;
         const el = createElement(`<div>
@@ -248,7 +268,13 @@ function requestSavedSongs(dates){
 
     const reqDates = dates.map(date => dateStamp(date));
 
-    const datesObj = {"dates": reqDates};
+    const selectedSongs = songSelector.selected();
+
+    const datesObj = {
+        "dates": reqDates,
+        "selectedSongs": selectedSongs
+    };
+
     fetch("/api/played", {
         method: "POST",
         cache: "no-cache",
@@ -291,8 +317,8 @@ function requestSongInfo(songIds, callback, ...args){
     });
 }
 
-const leftColumn = document.querySelector(".leftColumn");
-new DateSelector(leftColumn, new Date(), (selected) => {
+// const leftColumn = document.querySelector(".leftColumn");
+new DateSelector(dateSelectorHolder, new Date(), (selected) => {
     requestSavedSongs(selected);
 });
 

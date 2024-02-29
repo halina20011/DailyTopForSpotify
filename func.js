@@ -112,12 +112,13 @@ class Func{
 
 class TimeOut{
     constructor(callback, duration, ...args){
-        this.startTime = new Date();
-        this.timer = setTimeout(() => {
+        this.run = () => {
             callback(...args);
-        }, duration);
-        this.endTime = new Date(this.startTime.getTime() + duration);
+        }
+        this.startTime = new Date();
+        this.timer = setTimeout(this.run, duration);
 
+        this.endTime = new Date(this.startTime.getTime() + duration);
     }
 
     clear(){
@@ -127,9 +128,17 @@ class TimeOut{
     getTimeLeft(){
         return this.endTime.getTime() - Date.now();
     }
+    
+    expires(){
+        return this.endTime.toLogFormat();
+    }
 
     info(){
-        return [func.formatTime(this.getTimeLeft()), this.endTime.toLogFormat()];
+        return [func.formatTime(this.getTimeLeft()), this.expires()];
+    }
+
+    failed(offset){
+        return (this.getTimeLeft() + offset) < 0;
     }
 }
 

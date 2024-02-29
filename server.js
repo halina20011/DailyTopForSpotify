@@ -69,8 +69,9 @@ function setRefreshAccessTimeout(timeOutSeconds = refreshAccessTokenLifespan){
         nextRefreshAccessTokenTimer.clear();
     }
 
-    nextRefreshAccessTokenTimer = new TimeOut(requestRefreshedAccessToken, timeOutSeconds * 1000, undefined);
-    func.log(`next refresh access token request in ${timeOutSeconds * 1000}ms`);
+    const timeOutMs = timeOutSeconds * 1000;
+    nextRefreshAccessTokenTimer = new TimeOut(requestRefreshedAccessToken, timeOutMs, undefined);
+    func.log(`next refresh access token request on ${nextRefreshAccessTokenTimer.expires()} in ${timeOutMs}ms`);
 }
 
 function loadConfig(){
@@ -221,7 +222,6 @@ function requestRefreshedAccessToken(callback){
         let data = '';
 
         func.log(`status code ${res.statusCode}`);
-        func.log(`headers: ${res.headers}`);
 
         res.on('data', (chunk) => {
             data += chunk;
@@ -314,7 +314,7 @@ function addSongs(data, callback, ...args){
     });
 
     if(20 < numberOfSongs){
-        const durationSumInMinutes = durationSum / (1000 * 60);
+        const durationSumInMinutes = (durationSum / (1000 * 60)).toFixed(2);
         func.log(`recalculating new oneTrackApproxTime from ${numberOfSongs} tracks with duration sum ${durationSumInMinutes}min (${durationSum}ms)`);
         const newOneTrackApproxTime = (durationSumInMinutes / numberOfSongs).toFixed(2);
         if(1 < newOneTrackApproxTime){
@@ -437,19 +437,6 @@ app.get('/api/info', (_req, res) => {
     res.json(info);
 });
 
-function createSongInfo(item){
-    return {
-        name: item.track.name,
-        uri: item.track.uri,
-        id: item.track.id,
-        duration: item.track.duration_ms,
-        artists: item.track.artists,
-        image: item.track.album.images[0],
-        numberOfPlaybacks: 1,
-        playedAt: item.played_at
-    }
-}
-
 function getSongInfo(ids, onSuccess, songInfo, onError){
     if(ids == null || ids.length == 0){
         onSuccess(songInfo);
@@ -550,13 +537,20 @@ app.post("/api/songInfo", (req, res) => {
 app.post('/api/played', (req, res) => {
     const jsonData = req.body;
     const dates = jsonData.dates;
+    const songIds = jsonData.selectedSongs;
+
     if(dates == null){
         res.status(400).send();
         return;
     }
     
-    console.log(dates);
-    history.find({ dateStamp: {$in: dates}}).toArray()
+    const query = {dateStamp: {$in: dates}};
+    if(0 < songIds.length){
+        query.songId = {$in: songIds}
+    }
+
+    console.log(dates, songIds);
+    history.find(query).toArray()
     .then(result => {
         // console.log(result);
         const songs = {};
@@ -581,10 +575,6 @@ app.post('/api/played', (req, res) => {
         func.error(`error on quering songs: ${error}`);
         res.sendStatus(500);
     });
-});
-
-const server = app.listen(port, () => {
-    func.log(`running on http://${server.address().address}:${server.address().port}`);
 });
 
 // we will have three collections
@@ -638,6 +628,10 @@ let db, history, set;
 
 loadConfig();
 
+const server = app.listen(port, () => {
+    func.log(`running on http://localhost:${server.address().port}`);
+});
+
 const client = new MongoClient(dataBaseUri);
 
 client.connect().then(_ => {
@@ -662,3 +656,21 @@ client.connect().then(_ => {
         func.log(`invalid refresh access token, waiting for user to log in on ${loginPath}`);
     }
 }).catch(error => func.error(`failed to connect to database: ${error}`));
+
+// the offset when the timer is considered failed
+const TIMER_FAIL = 1 * 60 * 1000;
+
+function checkTimer(timer, name){
+    if(!timer){
+        return;
+    }
+    if(timer.failed(TIMER_FAIL)){
+        func.error(`timer "${name}" failed: ${timer.startTime} => ${timer.endTime} now ${new Date().toString()}`);
+        timer.run();
+    }
+}
+
+setInterval(() => {
+    checkTimer(nextRefreshAccessTokenTimer, "nextRefreshAccessTokenTimer");
+    checkTimer(nextRequestTimer, "nextRequestTimer");
+}, 60 * 1000);

@@ -82,6 +82,35 @@
     display: none;
 }
 
+.songContent{
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.songContent .buttons{
+    display: none;
+    margin-top: auto;
+}
+
+.button,
+.buttons > *{
+    padding: 5px;
+    background-color: #424242;
+    border: #424242 solid 2px;
+    border-radius: 5px;
+}
+
+.button:hover,
+.buttons > *:hover{
+    background: #353535;
+}
+
+.button:active,
+.buttons > *:active{
+    background: #303030;
+}
+
 /* #############################################################*/
 /*                      SONG LINE STYLE                         */
 /* #############################################################*/
@@ -94,6 +123,11 @@
 .songLineStyle > .song > .playedAtHolder{
     padding: 10px;
     padding-bottom: 0px;
+}
+
+.songLineStyle > .song .buttons{
+    display: flex;
+    justify-content: flex-end;
 }
 
 .playedAtHolder > .playedAtInfo{
