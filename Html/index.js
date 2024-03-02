@@ -1,25 +1,10 @@
 import {DateSelector} from "./daySelector.js";
 import {SongSelector} from "./songSelector.js";
+import * as frontFunc from "./frontFunc.js";
 
-console.log("I live <3");
+Object.assign(globalThis, frontFunc);
 
-HTMLElement.prototype.$ = function(name, f, run){
-    if(run == true && f){
-        f();
-    }
-
-    this.addEventListener(name, () => { f(); }, false);
-}
-
-function createElement(html){
-    const temp = document.createElement("div");
-    temp.innerHTML = html;
-
-    const element = temp.children[0];
-    temp.remove();
-
-    return element;
-}
+l("I live <3");
 
 const songSelectorHolder = document.querySelector(".songSelectorHolder");
 const songSelector = new SongSelector(songSelectorHolder);
@@ -65,23 +50,6 @@ const previewStylesButtons = [".toggleSongSmallLineStyle", ".toggleSongLineStyle
 
 previewStylesButtons[0].click();
 
-Date.prototype.format = function(){
-    const year = this.getFullYear();
-    const month = (this.getMonth() + 1).toString().padStart(2, '0');
-    const day = this.getDate().toString().padStart(2, '0');
-    const hours = this.getHours().toString().padStart(2, '0');
-    const minutes = this.getMinutes().toString().padStart(2, '0');
-    const seconds = this.getSeconds().toString().padStart(2, '0');
-
-    return `${hours}:${minutes}:${seconds} ${day}/${month}/${year}`;
-}
-
-Date.prototype.yesterday = function(){
-    const _yesterday = new Date(this);
-    _yesterday.setHours(_yesterday.getHours() - 24);
-    return _yesterday;
-}
-
 function sortByPlaybackCount(songs){
     // let playbacks = {};
     // allSongs.forEach((song) => {
@@ -113,7 +81,7 @@ function createEntries(songs, songsInfo){
     // console.log(songsInfo);
 
     songsHolder.innerHTML = "";
-    Object.keys(songs).forEach(key => {
+    Object.keys(songs).forEach((key, i) => {
         // console.log(songs[key].playbackCount);
         const song = songs[key];
         const songId = song.songId;
@@ -127,12 +95,13 @@ function createEntries(songs, songsInfo){
                 <div class="songContent">
                     <div class="songName">${song.name}</div>
                     <div class="artistNames">${artists}</div>
+                    <div class="songDuration">duration: ${toMinutes(songInfo.duration / 1000)}</div>
                     <div class="buttons">
                         <button class="selectSong">select</button>
                     </div>
                 </div>
-                <div class="playbackCountElement">
-                    <p>${song.playbackCount}</p>
+                <div class="order">
+                    <p>#${i+1}</p>
                 </div>
             </div>
             <div class="playedAtHolder">
@@ -185,9 +154,11 @@ function createHistogram(songs, songsInfo, dates){
     const histogram = Array.from({length: 24}, () => {return 0;});
     const allSongs = [];
 
+    let totalDuration = 0;
     Object.keys(songs).forEach(sKey => {
         const songDuration = songsInfo[songs[sKey].songId].duration;
         for(let i = 0; i < songs[sKey].playbackCount; i++){
+            totalDuration += songDuration;
             const time = new Date(songs[sKey].playedAt[i]);
             const data = {
                 "time": time,
@@ -203,6 +174,9 @@ function createHistogram(songs, songsInfo, dates){
     });
     
     allSongs.sort((a, b) => {return a.playedAt - b.playedAt});
+
+    listenDuration.innerHTML = getFormatedTime(totalDuration);
+
     console.log(allSongs);
     const size = allSongs.length;
     for(let i = 0; i < size; i++){
@@ -233,19 +207,51 @@ function createHistogram(songs, songsInfo, dates){
         // const listenTime = 60 * 60 * 1000 - v;
         // console.log();
     });
-    console.log(histogram);
+    // console.log(histogram);
+
+    return totalDuration;
+}
+
+function createSongTable(songs, songsInfo, totalDuration){
+    songDurationOrderHolder.innerHTML = "";
+    const allSongs = [];
+
+    Object.keys(songs).forEach(key => {
+        const s = songs[key];
+        s.totalDuration = s.playbackCount * songsInfo[s.songId].duration;
+        // console.log(`dur ${s.name} ${s.totalDuration}`);
+        allSongs.push([s.totalDuration, s.songId]);
+    });
+
+    allSongs.sort((a, b) => {return b[0] - a[0]});
+
+    allSongs.forEach(s => {
+        const song = songs[s[1]];
+        const songInfo = songsInfo[song.songId];
+        const image = (songInfo) ? songInfo.image : null;
+        const element = createElement(`<div class="songDurationItem">
+                <img src="${image}" alt="${song.name}">
+                <div>
+                    <div style="width: ${s[0]/totalDuration * 100}%;"></div>
+                    <p>${song.name}</p>
+                </div>
+                <p style="margin-left: auto;">${getFormatedTime(s[0])}</p>
+            </div>`);
+        songDurationOrderHolder.appendChild(element);
+    });
 }
 
 // first join all songs and sort them and apply filters if needed
 // TODO: sort by number of playes, artist
 // TODO: filters
 function createSongs(songs, dates){
-    console.log(songs);
+    // console.log(songs);
     songs = sortByPlaybackCount(songs);
     const songIds = Array.from(new Set(Object.keys(songs).map(songKey => songs[songKey].songId)));
     requestSongInfo(songIds, (songInfo) => {
         createEntries(songs, songInfo);
-        createHistogram(songs, songInfo, dates);
+        const totalDuration = createHistogram(songs, songInfo, dates);
+        createSongTable(songs, songInfo, totalDuration);
     });
 }
 
@@ -307,7 +313,7 @@ function requestSongInfo(songIds, callback, ...args){
     }).then((response) => {
         if(response.status == 200){
             response.json().then(a => {
-                console.log(a);
+                // console.log(a);
                 callback(a, args)
                 // createSongs(a);
             });

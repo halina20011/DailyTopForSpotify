@@ -77,8 +77,13 @@
     gap: 10px;
 }
 
-.songLineStyle > .song .playbackCountElement,
-.songBoxStyle > .song .playbackCountElement{
+.songLineStyle > .song .order,
+.songBoxStyle > .song .order{
+    display: none;   
+}
+
+.songLineSmallStyle .songDuration,
+.songBoxStyle .songDuration{
     display: none;
 }
 
@@ -154,7 +159,7 @@
 /* #############################################################*/
 /*                      SONG SMALL LINE STYLES                  */
 /* #############################################################*/
-.playbackCountElement{
+.order{
     display: flex;
     margin-left: auto;
     align-items: center;

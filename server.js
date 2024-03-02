@@ -17,6 +17,9 @@ const __dirname = path.dirname(__filenam);
 const app = express();
 const port = 5000;
 
+// TODO: sync prev spotify listen history
+// https://www.spotify.com/us/account/privacy/
+
 let dataBaseUri;
 
 let spotifyClientId;
@@ -288,10 +291,10 @@ class SongInfo{
 
 function addSongs(data, callback, ...args){
     const jsonResponse = JSON.parse(data);
-    if(Object.keys(jsonResponse.items).length <= 0){
-        func.log(`empty object with items`);
-        return;
-    }
+    // if(Object.keys(jsonResponse.items).length <= 0){
+    //     func.log(`empty object with items`);
+    //     return;
+    // }
 
     const lastPlayedSong = (jsonResponse.items[0]).played_at;
     const lastTimestamp = new Date(lastPlayedSong).getTime();
@@ -550,6 +553,7 @@ app.post('/api/played', (req, res) => {
     }
 
     console.log(dates, songIds);
+    // console.log(query);
     history.find(query).toArray()
     .then(result => {
         // console.log(result);

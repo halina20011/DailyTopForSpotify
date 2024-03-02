@@ -1,7 +1,7 @@
 .statisticsHolder{
     display: flex;
-    justify-content: center;
     align-items: center;
+    gap: 10px;
 }
 
 .histogramHolder{
@@ -9,6 +9,26 @@
     width: 70%;
     display: flex;
     flex-direction: column;
+}
+
+.statisticsHolder{
+    display: flex;
+    flex-direction: column;
+}
+
+.listenTime{
+    padding: 40px;
+    display: flex;
+    align-items: flex-end;
+}
+
+.listenTime > div {
+    vertical-align: baseline;
+    margin: 0;
+}
+
+#listenDuration{
+    font-size: 30px;
 }
 
 .histogram, .histogramText{
@@ -35,4 +55,35 @@
 
 .histogramText > div > p{
     text-align: center;
+}
+
+.songDurationOrder{
+    background-color: #191919;
+    border-radius: 10px;
+}
+
+.songDurationItem{
+    display: flex;
+    gap: 5px;
+    padding: 10px;
+    padding: 5px;
+    align-items: center;
+}
+
+.songDurationItem > img{
+    height: 40px;
+    aspect-ratio: 1/1;
+}
+
+.songDurationItem > div{
+    width: 100%;
+    height: 40px;
+    display: flex;
+    align-items: center;
+}
+
+.songDurationItem > div > div{
+    position: absolute; 
+    height: 40px; 
+    background-color: rgba(100, 100, 100, 0.2);
 }
