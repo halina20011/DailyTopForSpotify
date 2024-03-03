@@ -36,6 +36,7 @@ let nextRequestTimer = null;
 const configFile = __dirname + "/Data/config.json";
 const loginFile = __dirname + "/Data/login.json";
 const infoLog = __dirname + "/Data/infoLog.json";
+const lastRequestRaw = __dirname + "/Data/lastRequestRaw.json";
 
 const scope = "user-read-recently-played user-top-read";
 
@@ -123,13 +124,13 @@ function saveLogin(){
     func.writeToFile(
         fs,
         loginFile, 
-        JSON.stringify(data), 
+        data, 
         () => {func.log(`${loginFile} was updated`)}, 
         (error) => {func.log(`error writing to ${loginFile} ${error}`)}
     );
 }
 
-function infoLogAccess(action, lastRequest = undefined, lastTimestamp = undefined){
+function infoLogAccess(action, lastRequest = undefined, lastTrackTimestamp = undefined){
     // func.log("trying to access infoLog");
     let data = {};
     if(fs.existsSync(infoLog)){
@@ -141,13 +142,18 @@ function infoLogAccess(action, lastRequest = undefined, lastTimestamp = undefine
         return data;
     }
     else{
-        data.lastTrack = lastTimestamp;
-        data.lastRequest = lastRequest;
-        func.log(`new last request ${lastTimestamp} last timestamp ${lastTimestamp}`);
+        if(lastRequest){
+            data.lastRequest = lastRequest;
+        }
+        if(lastTrackTimestamp){
+            data.lastTrack = lastTrackTimestamp;
+        }
+
+        func.log(`new last request ${lastRequest} last timestamp ${lastTrackTimestamp}`);
         func.writeToFile(
             fs,
             infoLog,
-            JSON.stringify(data),
+            data,
             () => {func.log(`${infoLog} was updated successfully`)},
             (error) => {func.log(`error writing to ${infoLog} ${error}`)}
         )
@@ -264,17 +270,19 @@ function requestRefreshedAccessToken(callback){
 
 class Artist{
     constructor(obj){
-        this.id = obj.id;
+        this.artistId = obj.id;
         this.name = obj.name;
+        this.spotifyUrl = obj.external_urls.spotify;
+        this.image = obj.images[0].url;
     }
 }
 
 class Song{
-    constructor(songId, name, playedAt){
-        this.songId = songId;
-        this.name = name;
-        this.dateStamp = func.dateStamp(playedAt);
-        this.playedAt = playedAt;
+    constructor(track){
+        this.songId = track.id;
+        this.name = track.name;
+        this.playedAt = new Date(track.played_at);
+        this.dateStamp = func.dateStamp(this.playedAt);
     }
 }
 
@@ -282,40 +290,60 @@ class SongInfo{
     constructor(track){
         this.songId = track.id;
         this.name = track.name;
-        this.artists = track.artists.map(item => {return new Artist(item)});
+        this.artists = track.artists.map(artist => {return artist.id});
         this.duration = track.duration_ms;
         this.image = track.album.images[0].url;
-        this.href = track.href;
+        this.spotifyUrl = track.external_urls.spotify;
     }
 }
 
 function addSongs(data, callback, ...args){
+    func.writeToFile(
+        fs,
+        lastRequestRaw, 
+        data, 
+        () => {func.log(`${lastRequestRaw} was updated`)}, 
+        (error) => {func.log(`error writing to ${lastRequestRaw} ${error}`)}
+    );
+
     const jsonResponse = JSON.parse(data);
     // if(Object.keys(jsonResponse.items).length <= 0){
     //     func.log(`empty object with items`);
     //     return;
     // }
+    
+    func.log(`total: ${jsonResponse.total} next: ${jsonResponse.next}`);
 
-    const lastPlayedSong = (jsonResponse.items[0]).played_at;
-    const lastTimestamp = new Date(lastPlayedSong).getTime();
+    let lastTrackTimestamp = null;
+    if(jsonResponse.items && jsonResponse.items[0]){
+        lastTrackTimestamp = new Date(jsonResponse.items[0].played_at).getTime();
+    }
 
     const toAdd = [];
+
     const songsMap = new Map();
+    // const artistsMap = new Map();
+
     let durationSum = 0, numberOfSongs = 0;
     Object.keys(jsonResponse.items).forEach(itemKey => {
-        const item = jsonResponse.items[itemKey];
-        const songId = item.track.id;
-        const name = item.track.name;
+        const track = jsonResponse.items[itemKey].track;
+        const songId = track.id;
         
         songsMap.set(songId, itemKey);
 
-        const playedAt = new Date(item.played_at);
-        toAdd.push(new Song(songId, name, playedAt));
+        toAdd.push(new Song(track));
+
+        // console.log(track.artists);
+        // track.artists.forEach(artist => {
+        //     console.log(artist)
+        //     artistsMap.set(artist.id, new Artist(artist));
+        // });
         
-        durationSum += item.track.duration_ms;
+        durationSum += track.duration_ms;
         numberOfSongs++;
     });
 
+    
     if(20 < numberOfSongs){
         const durationSumInMinutes = (durationSum / (1000 * 60)).toFixed(2);
         func.log(`recalculating new oneTrackApproxTime from ${numberOfSongs} tracks with duration sum ${durationSumInMinutes}min (${durationSum}ms)`);
@@ -330,8 +358,10 @@ function addSongs(data, callback, ...args){
     }
 
     const songsIdArray = Array.from(songsMap.keys());
+    // const artistsIdArray = Array.from(artistsMap.keys());
 
-    set.find({songId: {$in: songsIdArray}}).toArray()
+    // add new songs
+    songsSet.find({songId: {$in: songsIdArray}}).toArray()
     .then(result => {
         result.forEach(item => {
             // console.log(`deleting ${item.songId}`);
@@ -347,14 +377,34 @@ function addSongs(data, callback, ...args){
                 newSongsInfo.push(new SongInfo(item.track));
             });
 
-            set.insertMany(newSongsInfo);
+            songsSet.insertMany(newSongsInfo);
         }
-    })
+    });
+
+    // // add new artists
+    // artistsSet.find({artistId: {$in: artistsIdArray}}).toArray()
+    // .then(result => {
+    //     result.forEach(artist => {
+    //         // console.log(`deleting ${item.songId}`);
+    //         artistsMap.delete(artist.artistId);
+    //     });
+    //
+    //     if(artistsMap.size != 0){
+    //         const newArtists = [];
+    //         songsMap.forEach(key => {
+    //             const artist = artistsMap[key];
+    //             func.log(`artist "${artist.name}" was firstly played`);
+    //             newArtists.push(artist);
+    //         });
+    //
+    //         artistsSet.insertMany(newArtists);
+    //     }
+    // });
 
     history.insertMany(toAdd).then(result => {
         if(result.acknowledged == true){
             func.log(`retrieved ${toAdd.length} tracks`);
-            infoLogAccess("write", Date.now(), lastTimestamp);
+            infoLogAccess("write", Date.now(), lastTrackTimestamp);
             setNextReqest();
         }
     });
@@ -365,9 +415,9 @@ function addSongs(data, callback, ...args){
 }
 
 function lastTracks(callback, ...args){
-    const lastTimestamp = infoLogAccess("read").lastRequest;
+    const lastTrackTimestamp = infoLogAccess("read").lastRequest;
 
-    const time = (lastTimestamp == null) ? `before=${new Date().getTime()}` : `after=${lastTimestamp}`;
+    const time = (lastTrackTimestamp == null) ? `before=${new Date().getTime()}` : `after=${lastTrackTimestamp}`;
     func.log(`Time: >${time}<`);
 
     const options = {
@@ -440,14 +490,14 @@ app.get('/api/info', (_req, res) => {
     res.json(info);
 });
 
-function getSongInfo(ids, onSuccess, songInfo, onError){
+function getSongInfo(ids, songInfo, onSuccess, onError){
     if(ids == null || ids.length == 0){
         onSuccess(songInfo);
         return 0;
     }
     
-    if(50 < ids.length){
-        ids.splice(50);
+    if(100 < ids.length){
+        ids.splice(100);
     }
 
     const options = {
@@ -474,9 +524,10 @@ function getSongInfo(ids, onSuccess, songInfo, onError){
                 const tracks = data.tracks;
                 if(data != null && tracks != null){
                     const newSongInfo = tracks.map(track => new SongInfo(track));
-                    set.insertMany(newSongInfo).then(result => {
+                    songsSet.insertMany(newSongInfo).then(result => {
                         func.log(`added ${result.insertedCount} new song info `)
                     });
+
                     Object.assign(songInfo, newSongInfo);
                     onSuccess(songInfo);
                 }
@@ -501,40 +552,121 @@ function getSongInfo(ids, onSuccess, songInfo, onError){
     }).end();
 }
 
+function getArtistInfo(ids, artistInfo, onSuccess, onError){
+    if(ids == null || ids.length == 0){
+        onSuccess(artistInfo);
+        return 0;
+    }
+    
+    if(100 < ids.length){
+        ids.splice(100);
+    }
+
+    const options = {
+        hostname: "api.spotify.com",
+        path: `/v1/artists?ids=${ids.join(",")}`,
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${accessToken}`,
+        },
+    };
+
+    https.request(options, (res) => {
+        let data = '';
+         
+        res.on("data", (chunk) => {
+            data += chunk;
+        });
+        
+        res.on("end", () => {
+            data = JSON.parse(data);
+            if(res.statusCode === 200){
+                const artists = data.artists;
+                if(data != null && artists != null){
+                    const newArtist = artists.map(artist=> new Artist(artist));
+                    artistsSet.insertMany(newArtist).then(result => {
+                        func.log(`added ${result.insertedCount} new artists`);
+                        onSuccess(artistInfo.concat(newArtist));
+                    });
+                }
+                else{
+                    onError();
+                }
+            }
+            else if(res.statusCode == 401){
+                onError();
+                func.error("Bad or expired token, requesting refreshed token");
+                requestRefreshedAccessToken();
+            }
+            else{
+                onError();
+                func.log(`status Code ${res.statusCode} ${data}`);
+            }
+        });
+           
+    }).on("error", (error) => {
+        onError();
+        func.error(`error occurred on requesting last tracks: "${error}"`);
+    }).end();
+}
+
+function getAndUpdate(collection, array, queryName, onSuccess, onError, callback){
+    const set = new Set(array);
+    
+    const query = {};
+    query[queryName] = {$in: array};
+
+    collection.find(query).toArray()
+    .then(result => {
+        result.forEach(item => {
+            set.delete(item[queryName]);
+        });
+    
+        if(set.size != 0){
+            const array = Array.from(set);
+            console.log(`not found ${set.size} ${array.join(",")}`);
+            console.log("result: ");
+            console.log(result);
+            console.log("array: ");
+            console.log(array);
+            onSuccess(array, result, callback, onError);
+        }
+        else{
+            callback(result);
+        }
+    })
+    .catch(error => {
+        func.error(`error on quering songs: ${error}`);
+        onError(error);
+    });
+}
+
+app.post("/api/artistInfo", (req, res) => {
+    const jsonData = req.body;
+    const artistIds = jsonData.artistId;
+    
+    const onSuccess = (dataArray) => {
+        const entries = Object.fromEntries(dataArray.map(obj => [obj.artistId, obj]));
+        res.json(entries);
+    }
+    
+    const onError = () => {res.sendStatus(404)}
+
+    getAndUpdate(artistsSet, artistIds, "artistId", getArtistInfo, onError, onSuccess);
+});
+
 app.post("/api/songInfo", (req, res) => {
     const jsonData = req.body;
     const songIds = jsonData.songIds;
-    if(songIds == null){
-        res.status(400).send();
-        return;
-    }
-    
-    const songIdsSet = new Set(songIds);
-    
+
     const onSuccess = (dataArray) => {
         const entries = Object.fromEntries(dataArray.map(obj => [obj.songId, obj]));
         res.json(entries);
     };
 
-    set.find({songId: {$in: songIds}}).toArray()
-    .then(result => {
-        result.forEach(item => {
-            songIdsSet.delete(item.songId);
-        });
+    const onError = () => {res.sendStatus(404)}
 
-        if(songIdsSet.size != 0){
-            const array = Array.from(songIdsSet);
-            console.log(`not found ${songIdsSet.size} ${array.join(",")}`);
-            getSongInfo(array, onSuccess, result, () => {res.sendStatus(404)});
-        }
-        else{
-            onSuccess(result);
-        }
-    })
-    .catch(error => {
-        func.error(`error on quering songs: ${error}`);
-        res.sendStatus(500);
-    });
+    getAndUpdate(songsSet, songIds, "songId", getSongInfo, onError, onSuccess);
 });
 
 app.post('/api/played', (req, res) => {
@@ -584,8 +716,10 @@ app.post('/api/played', (req, res) => {
 // we will have three collections
 //  history: each song that have been played
 //
-//  set: each song has data that will repeat (as song id, artist, release date, uri...)
+//  songsSet: each song has data that will repeat (as song id, artist, release date, uri...)
 //      every time new song is played
+//
+//  artistsSet: each artist data
 //
 //  TODO:
 //  summary: each day will have 
@@ -623,12 +757,12 @@ app.post('/api/played', (req, res) => {
 //  if we have access to API (valid requestToken) read the infoLog to get lastRequest
 //      if the lastRequest + time to listen to 50 songs is smaller then curr time 
 //          request the lastTracks
-//      else set up timer and wait
+//      else songsSet up timer and wait
 //
 
 const dbName = "dailyTopForSpotify";
 
-let db, history, set;
+let db, history, songsSet, artistsSet;
 
 loadConfig();
 
@@ -642,7 +776,8 @@ client.connect().then(_ => {
     func.log("database connected");
     db = client.db(dbName);
     history = db.collection("history");
-    set = db.collection("set");
+    songsSet = db.collection("songsSet");
+    artistsSet = db.collection("artistsSet");
 
     loadLogin();
     if(refreshAccessToken != "" && refreshAccessToken != null){

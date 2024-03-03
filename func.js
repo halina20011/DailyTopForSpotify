@@ -93,7 +93,8 @@ class Func{
         console.log(`${color(yellow, now.toLogFormat())} ${color(red, str)}`);
     }
 
-    writeToFile(fs, path, data, successFunction, errorFunction){
+    writeToFile(fs, path, _data, successFunction, errorFunction){
+        const data = (typeof(_data) === "string") ? _data : JSON.stringify(_data);
         try{
             fs.writeFileSync(path, data);
             if(successFunction){

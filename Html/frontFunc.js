@@ -1,6 +1,4 @@
-export function l(...text){
-    console.log(...text);
-}
+export const l = console.log;
 
 export function createElement(html){
     const temp = document.createElement("div");

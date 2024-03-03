@@ -212,7 +212,7 @@ function createHistogram(songs, songsInfo, dates){
     return totalDuration;
 }
 
-function createSongTable(songs, songsInfo, totalDuration){
+function createSongTable(songs, songsInfo){
     songDurationOrderHolder.innerHTML = "";
     const allSongs = [];
 
@@ -223,7 +223,14 @@ function createSongTable(songs, songsInfo, totalDuration){
         allSongs.push([s.totalDuration, s.songId]);
     });
 
+    if(allSongs.length == 0){
+        return;
+    }
+
     allSongs.sort((a, b) => {return b[0] - a[0]});
+
+    const firstSongDuration = allSongs[0][0];
+    // l(firstSongDuration);
 
     allSongs.forEach(s => {
         const song = songs[s[1]];
@@ -232,12 +239,70 @@ function createSongTable(songs, songsInfo, totalDuration){
         const element = createElement(`<div class="songDurationItem">
                 <img src="${image}" alt="${song.name}">
                 <div>
-                    <div style="width: ${s[0]/totalDuration * 100}%;"></div>
+                    <div style="width: ${s[0]/firstSongDuration * 100}%;"></div>
                     <p>${song.name}</p>
                 </div>
                 <p style="margin-left: auto;">${getFormatedTime(s[0])}</p>
             </div>`);
         songDurationOrderHolder.appendChild(element);
+    });
+}
+
+function createArtistTable(songs, songsInfo, artists){
+    artistDurationOrderHolder.innerHTML = "";
+    const allArtists = new Map();
+
+    Object.keys(songs).forEach(key => {
+        const s = songs[key];
+        const totalDuration = s.playbackCount * songsInfo[s.songId].duration;
+        // console.log(s, songsInfo[s.songId]);
+        songsInfo[s.songId].artists.forEach(artistId => {
+            if(!allArtists.has(artistId)){
+                allArtists.set(artistId, {duration: 0});
+            }
+
+            allArtists.get(artistId).duration += totalDuration;
+        });
+    });
+    
+    if(allArtists.size == 0){
+        return;
+    }
+
+    const artistsArray = Array.from(allArtists.entries(), ([key, value]) => [value.duration, key]);
+    artistsArray.sort((a, b) => {return b[0] - a[0]});
+
+    const firstArtistDuration = artistsArray[0][0];
+
+    artistsArray.forEach(s => {
+        const artistId = s[1];
+        const artist = artists[artistId];
+        const image = (artist) ? artist.image : null;
+        // l(s[0]/firstSongDuration);
+        const element = createElement(`<div class="songDurationItem">
+                <img src="${image}" alt="${artist.name}">
+                <div>
+                    <div style="width: ${s[0]/firstArtistDuration* 100}%;"></div>
+                    <p>${artist.name}</p>
+                </div>
+                <p style="margin-left: auto;">${getFormatedTime(s[0])}</p>
+            </div>`);
+        artistDurationOrderHolder.appendChild(element);
+    });
+}
+
+function requestInfo(url, obj){
+    return fetch(url, {
+        method: "POST",
+        cache: "no-cache",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(obj)
+    }).then((response) => {
+        return response.json()
+    }).catch(error => {
+        console.error(error);
     });
 }
 
@@ -247,11 +312,31 @@ function createSongTable(songs, songsInfo, totalDuration){
 function createSongs(songs, dates){
     // console.log(songs);
     songs = sortByPlaybackCount(songs);
-    const songIds = Array.from(new Set(Object.keys(songs).map(songKey => songs[songKey].songId)));
-    requestSongInfo(songIds, (songInfo) => {
-        createEntries(songs, songInfo);
-        const totalDuration = createHistogram(songs, songInfo, dates);
-        createSongTable(songs, songInfo, totalDuration);
+    
+    const songIdSet = new Set();
+
+    Object.keys(songs).map(songKey => {
+        const song = songs[songKey];
+        songIdSet.add(song.songId);
+    });
+
+    const objSongIds = {"songIds": Array.from(songIdSet)};
+
+    requestInfo("/api/songInfo", objSongIds).then(songsInfo => {
+        const artistIdSet = new Set();
+
+        Object.keys(songsInfo).forEach(key => {
+            const songInfo = songsInfo[key]
+            songInfo.artists.forEach(artist => artistIdSet.add(artist));
+        });
+
+        const objArtistIds = {"artistId": Array.from(artistIdSet)};
+        requestInfo("/api/artistInfo", objArtistIds).then(artists => {
+            createEntries(songs, songsInfo);
+            const totalDuration = createHistogram(songs, songsInfo, dates);
+            createSongTable(songs, songsInfo, totalDuration);
+            createArtistTable(songs, songsInfo, artists);
+        });
     });
 }
 
@@ -293,29 +378,6 @@ function requestSavedSongs(dates){
             // console.log(response);
             response.json().then(songs => {
                 createSongs(songs, dates);
-            });
-        }
-    }).catch(error => {
-        console.error(error);
-    });
-}
-
-function requestSongInfo(songIds, callback, ...args){
-    const objSongIds = {"songIds": songIds};
-
-    fetch("/api/songInfo", {
-        method: "POST",
-        cache: "no-cache",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(objSongIds)
-    }).then((response) => {
-        if(response.status == 200){
-            response.json().then(a => {
-                // console.log(a);
-                callback(a, args)
-                // createSongs(a);
             });
         }
     }).catch(error => {

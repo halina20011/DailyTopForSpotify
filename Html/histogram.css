@@ -1,12 +1,13 @@
 .statisticsHolder{
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 20px;
+    padding: 40px 80px;
 }
 
 .histogramHolder{
     position: relative;
-    width: 70%;
+    width: 100%;
     display: flex;
     flex-direction: column;
 }
@@ -17,7 +18,7 @@
 }
 
 .listenTime{
-    padding: 40px;
+    padding: 10px 40px;
     display: flex;
     align-items: flex-end;
 }
@@ -57,12 +58,33 @@
     text-align: center;
 }
 
-.songDurationOrder{
-    background-color: #191919;
-    border-radius: 10px;
+.durationsHolders{
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 50px;
+    box-sizing: border-box;
 }
 
-.songDurationItem{
+.songDurationOrder,
+.artistDurationOrder{
+    background-color: #191919;
+    border-radius: 10px;
+    padding: 5px;
+    width: 50%;
+}
+
+.songDurationOrderHolder,
+.artistDurationOrderHolder{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+}
+
+.songDurationItem,
+.artistDurationItem{
+    position: relative;
     display: flex;
     gap: 5px;
     padding: 10px;
@@ -70,20 +92,34 @@
     align-items: center;
 }
 
-.songDurationItem > img{
+.songDurationItem > img,
+.artistDurationItem > img{
+    border-radius: 5px;
     height: 40px;
     aspect-ratio: 1/1;
 }
 
-.songDurationItem > div{
+.songDurationItem > div,
+.artistDurationItem > div{
+    position: relative;
     width: 100%;
     height: 40px;
     display: flex;
     align-items: center;
+    overflow: hidden;
 }
 
-.songDurationItem > div > div{
-    position: absolute; 
+.songDurationItem > div > div,
+.artistDurationItem > div > div{
     height: 40px; 
-    background-color: rgba(100, 100, 100, 0.2);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.songDurationItem > div > p,
+.artistDurationItem > div > p{
+    position: absolute;
+    white-space: nowrap;
+    text-overflow: "...";
+    width: 100%;
+    overflow: hidden;
 }

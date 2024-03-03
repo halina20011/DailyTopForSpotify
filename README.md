@@ -23,8 +23,11 @@ set up the database:
 ```
 db.createCollection("history")
 
-db.createCollection("set")
-db.set.createIndex({"songId": 1}, {unique: true})
+db.createCollection("songsSet")
+db.songsSet.createIndex({"songId": 1}, {unique: true})
+
+db.createCollection("artistsSet")
+db.artistsSet.createIndex({"artistId": 1}, {unique: true})
 ```
 
 ## Deployment
@@ -38,6 +41,35 @@ to see the logs made by the server use `forever logs server.js` to get the file 
 ## Images
 <img src="Images/preview1.png" alt="preview1" width="100%">
 <img src="Images/preview2.png" alt="preview2" width="100%">
+<img src="Images/preview3.png" alt="preview3" width="100%">
+<img src="Images/preview4.png" alt="preview4" width="100%">
 
 <!-- ## Setup a database -->
 <!-- install mongodb -->
+
+## Changes
+```
+db.set.renameCollection("songsSet");
+
+db.createCollection("artistsSet")
+db.artistsSet.createIndex({"artistId": 1}, {unique: true})
+
+// make backup
+db.songsSetCopy.insertMany(db.songsSet.find({}).toArray())
+
+db.songsSet.updateMany({},
+  [
+    {
+      $set: {
+        artists: {
+          $map: {
+            input: "$artists",
+            as: "artist",
+            in: "$$artist.id"
+          }
+        }
+      }
+    }
+  ]
+);
+```
