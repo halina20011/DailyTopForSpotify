@@ -30,18 +30,19 @@ for(let i = windows.length - 1; i >= 0; i--){
     }, true);
 }
 
-let prevPreview = null;
+let prevPreview = null, prevPreviewStyle = null;
 const previewStyles = ["songLineSmallStyle", "songLineStyle", "songBoxStyle"];
 const previewStylesButtons = [".toggleSongSmallLineStyle", ".toggleSongLineStyle", ".toggleSongBoxStyle"].map((buttonClassName, i) => {
     const button = document.querySelector(buttonClassName);
     button.addEventListener("click", () => {
         if(prevPreview){
             prevPreview.classList.remove("active");
-            songsHolder.className = "songsHolder";
+            songsHolder.classList.remove(prevPreviewStyle);
         }
 
         songsHolder.classList.add(previewStyles[i]);
         button.classList.add("active");
+        prevPreviewStyle = previewStyles[i];
         prevPreview = button;
     });
 
@@ -76,7 +77,7 @@ HTMLElement.prototype.appendChildren = function(...args){
     }
 };
 
-function createEntries(songs, songsInfo){
+function createEntries(songs, songsInfo, artists){
     // console.log(songs);
     // console.log(songsInfo);
 
@@ -87,14 +88,14 @@ function createEntries(songs, songsInfo){
         const songId = song.songId;
         const songInfo = songsInfo[songId];
         const songElement = createElement(`<div class="song"></div>`);
-        const artists = (songInfo) ? (songInfo.artists.map(artist => artist.name)).join(", ") : "";
+        const artistsStr = (songInfo) ? (songInfo.artists.map(artistId => artists[artistId].name)).join(", ") : "";
         const image = (songInfo) ? songInfo.image : null;
         songElement.innerHTML = `
             <div class="firstLine">
                 <img class="image" src="${image}" alt="${song.name}">
                 <div class="songContent">
                     <div class="songName">${song.name}</div>
-                    <div class="artistNames">${artists}</div>
+                    <div class="artistNames">${artistsStr}</div>
                     <div class="songDuration">duration: ${toMinutes(songInfo.duration / 1000)}</div>
                     <div class="buttons">
                         <button class="selectSong">select</button>
@@ -332,7 +333,7 @@ function createSongs(songs, dates){
 
         const objArtistIds = {"artistId": Array.from(artistIdSet)};
         requestInfo("/api/artistInfo", objArtistIds).then(artists => {
-            createEntries(songs, songsInfo);
+            createEntries(songs, songsInfo, artists);
             const totalDuration = createHistogram(songs, songsInfo, dates);
             createSongTable(songs, songsInfo, totalDuration);
             createArtistTable(songs, songsInfo, artists);

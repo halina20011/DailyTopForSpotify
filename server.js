@@ -278,10 +278,10 @@ class Artist{
 }
 
 class Song{
-    constructor(track){
+    constructor(track, playedAt){
         this.songId = track.id;
         this.name = track.name;
-        this.playedAt = new Date(track.played_at);
+        this.playedAt = new Date(playedAt);
         this.dateStamp = func.dateStamp(this.playedAt);
     }
 }
@@ -307,10 +307,6 @@ function addSongs(data, callback, ...args){
     );
 
     const jsonResponse = JSON.parse(data);
-    // if(Object.keys(jsonResponse.items).length <= 0){
-    //     func.log(`empty object with items`);
-    //     return;
-    // }
     
     func.log(`total: ${jsonResponse.total} next: ${jsonResponse.next}`);
 
@@ -326,12 +322,13 @@ function addSongs(data, callback, ...args){
 
     let durationSum = 0, numberOfSongs = 0;
     Object.keys(jsonResponse.items).forEach(itemKey => {
-        const track = jsonResponse.items[itemKey].track;
+        const item = jsonResponse.items[itemKey];
+        const track = item.track;
         const songId = track.id;
         
         songsMap.set(songId, itemKey);
 
-        toAdd.push(new Song(track));
+        toAdd.push(new Song(track, item.played_at));
 
         // console.log(track.artists);
         // track.artists.forEach(artist => {
@@ -401,6 +398,7 @@ function addSongs(data, callback, ...args){
     //     }
     // });
 
+    console.log(toAdd);
     history.insertMany(toAdd).then(result => {
         if(result.acknowledged == true){
             func.log(`retrieved ${toAdd.length} tracks`);
@@ -624,11 +622,6 @@ function getAndUpdate(collection, array, queryName, onSuccess, onError, callback
     
         if(set.size != 0){
             const array = Array.from(set);
-            console.log(`not found ${set.size} ${array.join(",")}`);
-            console.log("result: ");
-            console.log(result);
-            console.log("array: ");
-            console.log(array);
             onSuccess(array, result, callback, onError);
         }
         else{
