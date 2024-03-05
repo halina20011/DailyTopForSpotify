@@ -1,7 +1,8 @@
 class Node{
-    constructor(val, next = null){
+    constructor(val, next = null, prev = null){
         this.val = val;
         this.next = next;
+        this.prev = prev;
     }
 };
 
@@ -20,20 +21,32 @@ export class LookUpList{
         this.tail = null;
     }
 
+    clear(){
+        this.map.clear();
+        this.head = null;
+        this.tail = null;
+        this.size = 0;
+    }
+
     print(){
-        const output = [];
         let curr = this.head;
+        console.log(`start`);
         while(curr){
-            output.push(curr);
+            // output.push(curr);
+            const prev = (curr.prev) ? curr.prev.val.first : null;
+            const next = (curr.next) ? curr.next.val.first : null;
+            console.log(`${prev} <= ${JSON.stringify(curr.val.first)} => ${next}`);
             curr = curr.next;
         }
-        console.log(JSON.stringify(output));
+        console.log(`end`);
     }
 
     push(id, val){
         const pair = new Pair(id, val);
         const newNode = new Node(pair);
         
+        newNode.prev = this.tail;
+
         this.map.set(id, newNode);
 
         if(!this.head){
@@ -53,13 +66,25 @@ export class LookUpList{
             return;
         }
 
-        let curr = this.map.get(id);
-        if(curr.val == this.head.val){
-            this.head = null;
-            this.tail = null;
-        }
+        const curr = this.map.get(id);
         this.map.delete(id);
-        curr = curr.next;
+
+        if(curr.val == this.head.val){
+            this.head = this.head.next;
+        }
+
+        if(curr.val == this.tail.val){
+            this.tail = this.tail.prev;
+        }
+
+        const prev = curr.prev;
+        if(prev){
+            prev.next = curr.next;
+        }
+        if(curr.next){
+            curr.next.prev = prev;
+        }
+
         this.size--;
     }
 }

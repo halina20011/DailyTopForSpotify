@@ -7,6 +7,11 @@
     padding: 10px;
     box-sizing: border-box;
     margin: auto;
+    gap: 10px;
+}
+
+.dateSelector > div:not(.settings){
+    padding: 0 10px;
 }
 
 .dateSelector > .settings{
@@ -37,7 +42,6 @@
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 5px;
-    padding: 10px;
 }
 
 .dayHolder > .day{
@@ -54,10 +58,18 @@
     user-select: none;
 }
 
+.rangeSelector{
+    display: flex;
+    justify-content: space-between;
+    gap: 5px;
+    padding: 0px 10px;
+}
+
 .buttonHolder{
     display: flex;
     justify-content: flex-end;
     gap: 5px;
+    padding: 0px 10px;
 }
 
 .buttonHolder > *{

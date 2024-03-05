@@ -181,6 +181,14 @@ class MonthSelector{
             this.days[day].state = true;
         }
     }
+
+    clear(){
+        this.days.forEach(daySelector => {
+            if(daySelector.selected){
+                daySelector.unselect();
+            }
+        });
+    }
 }
 
 export class DateSelector{
@@ -220,25 +228,39 @@ export class DateSelector{
         this.monthSelectorHolder = document.createElement("div");
         this.dateSelectorHolder = document.createElement("div");
         this.dateSelectorHolder.className = "dateSelector";
-        
+ 
+        const rangeSelector = createElement(`<div class="rangeSelector">
+                    <p>range: </p>
+                    <select class="selectDateRange">
+                        <option value="1">day</option>
+                        <option value="7">week</option>
+                        <option value="31">month</option>
+                    </select>
+                </div>`);
+
         const buttonHolder = createElement(`<div class="buttonHolder">
-                <button class="clear">clear</button>
+                <button class="clearAll">clear all</button>
+                <button class="clear" style="margin-left: auto;">clear</button>
                 <button class="submit">submit</button>
             </div>`);
 
         buttonHolder.querySelector(".clear").addEventListener("click", () => {
-            this.monthSelector.days.forEach(daySelector => {
-                if(daySelector.selected){
-                    daySelector.unselect();
-                }
-            })
+            this.monthSelector.clear();
         });
+
+        buttonHolder.querySelector(".clearAll").addEventListener("click", () => { this.clearAll(); });
 
         buttonHolder.querySelector(".submit").addEventListener("click", () => {submitFunc(this.selected())});
 
+        const selectDateRange = rangeSelector.querySelector(".selectDateRange");
+        selectDateRange.$("input", () => {
+            const range = parseInt(selectDateRange.value);
+            this.selectRange(range);
+        });
+
         this.parentElement.appendChild(this.dateSelectorHolder);
         
-        [settings, this.monthSelectorHolder, buttonHolder].forEach(e => this.dateSelectorHolder.appendChild(e));
+        [settings, this.monthSelectorHolder, rangeSelector, buttonHolder].forEach(e => this.dateSelectorHolder.appendChild(e));
 
         this.updateMonth();
     }
@@ -259,5 +281,33 @@ export class DateSelector{
 
     selected(){
         return Array.from(this.selectedDays).map(daySelector => daySelector.date);
+    }
+    
+    clearAll(){
+        this.months.forEach((v) => {
+            v.clear();
+        });
+    }
+
+    selectRange(n){
+        this.clearAll();
+        const thisMonthWindow = this.monthWindow;
+        let day = new Date().getDate() - 1;
+        while(0 < n){
+            while(0 < n && 0 <= day){
+                this.monthSelector.days[day--].select()
+                n--;
+            }
+            if(0 < n && day < 0){
+            this.monthSelector.disable();
+                this.monthWindow = this.monthWindow.previousMonth();
+                this.updateMonth();
+                day = this.monthSelector.days.length - 1;
+            }
+        }
+
+        this.monthSelector.disable();
+        this.monthWindow = thisMonthWindow;
+        this.updateMonth();
     }
 }

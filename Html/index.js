@@ -7,7 +7,7 @@ Object.assign(globalThis, frontFunc);
 l("I live <3");
 
 const songSelectorHolder = document.querySelector(".songSelectorHolder");
-const songSelector = new SongSelector(songSelectorHolder);
+const songSelector = new SongSelector(songSelectorHolder, songSelectorClearAll);
 
 const songsHolder = document.querySelector(".songsHolder");
 const statisticsHolder = document.querySelector(".statisticsHolder");
@@ -18,6 +18,8 @@ const histogramTextElement = document.querySelector(".histogramText");
 const windowButtons = [".songPreview", ".statisticsPreview", ".spotifyTopItems"].map(bName => document.querySelector(bName));
 const windows = [songsHolder, statisticsHolder, spotifyTopItemsHolder];
 let activeWindow = 0;
+
+const nullImage = "/Images/nullProfilePic.png";
 
 for(let i = windows.length - 1; i >= 0; i--){
     windowButtons[i].$("click", () => {
@@ -88,8 +90,8 @@ function createEntries(songs, songsInfo, artists){
         const songId = song.songId;
         const songInfo = songsInfo[songId];
         const songElement = createElement(`<div class="song"></div>`);
-        const artistsStr = (songInfo) ? (songInfo.artists.map(artistId => artists[artistId].name)).join(", ") : "";
-        const image = (songInfo) ? songInfo.image : null;
+        const artistsStr = (songInfo && songInfo.artists && songInfo.artists[0]) ? (songInfo.artists.map(artistId => artists[artistId].name)).join(", ") : "";
+        const image = (songInfo && songInfo.image) ? songInfo.image : nullImage;
         songElement.innerHTML = `
             <div class="firstLine">
                 <img class="image" src="${image}" alt="${song.name}">
@@ -122,7 +124,7 @@ function createEntries(songs, songsInfo, artists){
 
         const selectorElement = createElement(`<div class="songSelectorItem">
                 <img class="image" src="${image}" alt="${song.name}">
-                <div style="display: flex; flex-direction: column;">
+                <div style="display: flex; flex-direction: column; overflow: hidden;">
                     <div class="songSelectorSongName">${song.name}</div>
                     <button class="removeSelectedSong button">remove</button>
                 </div>
@@ -236,7 +238,7 @@ function createSongTable(songs, songsInfo){
     allSongs.forEach(s => {
         const song = songs[s[1]];
         const songInfo = songsInfo[song.songId];
-        const image = (songInfo) ? songInfo.image : null;
+        const image = (songInfo && songInfo.image) ? songInfo.image : nullImage;
         const element = createElement(`<div class="songDurationItem">
                 <img src="${image}" alt="${song.name}">
                 <div>
@@ -278,7 +280,7 @@ function createArtistTable(songs, songsInfo, artists){
     artistsArray.forEach(s => {
         const artistId = s[1];
         const artist = artists[artistId];
-        const image = (artist) ? artist.image : null;
+        const image = (artist && artist.image) ? artist.image : nullImage;
         // l(s[0]/firstSongDuration);
         const element = createElement(`<div class="songDurationItem">
                 <img src="${image}" alt="${artist.name}">
@@ -333,6 +335,7 @@ function createSongs(songs, dates){
 
         const objArtistIds = {"artistId": Array.from(artistIdSet)};
         requestInfo("/api/artistInfo", objArtistIds).then(artists => {
+            // console.log("data arrived");
             createEntries(songs, songsInfo, artists);
             const totalDuration = createHistogram(songs, songsInfo, dates);
             createSongTable(songs, songsInfo, totalDuration);
@@ -387,8 +390,12 @@ function requestSavedSongs(dates){
 }
 
 // const leftColumn = document.querySelector(".leftColumn");
-new DateSelector(dateSelectorHolder, new Date(), (selected) => {
+const dateSelector = new DateSelector(dateSelectorHolder, new Date(), (selected) => {
     requestSavedSongs(selected);
+});
+
+songSelectorSubmit.$("click", () => {
+    requestSavedSongs(dateSelector.selected());
 });
 
 requestSavedSongs(new Date());

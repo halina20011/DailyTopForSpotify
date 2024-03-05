@@ -53,6 +53,7 @@ const getListenTimeApproximated = () => {
     return oneTrackApproxTime * 60 * 50 * 1000;
 };
 
+const SONG_PROCENTAGE_ERROR_MARGIN = 0.8;
 // lifespan of access Token in minutes
 const refreshAccessTokenLifespan = 45 * 60;
 
@@ -230,13 +231,12 @@ function requestRefreshedAccessToken(callback){
     const request = https.request(options, (res) => {
         let data = '';
 
-        func.log(`status code ${res.statusCode}`);
-
         res.on('data', (chunk) => {
             data += chunk;
         });
 
         res.on("end", () => {
+            func.log(`requestRefreshedAccessToken: status code ${res.statusCode}`);
             if(res.statusCode === 200){
                 const jsonResponse = JSON.parse(data);
                 accessToken = jsonResponse.access_token;
@@ -252,6 +252,7 @@ function requestRefreshedAccessToken(callback){
 
         res.on("error", (error) => {
             func.error(`error occurred on response from refreshed access token: "${error}"`);
+            setRefreshAccessTimeout(2 * 60);
         });
     });
 
@@ -273,7 +274,12 @@ class Artist{
         this.artistId = obj.id;
         this.name = obj.name;
         this.spotifyUrl = obj.external_urls.spotify;
-        this.image = obj.images[0].url;
+        if(obj.images && 0 < obj.images.length){
+            this.image = obj.images[0].url;
+        }
+        else{
+            this.image = null;
+        }
     }
 }
 
@@ -297,17 +303,15 @@ class SongInfo{
     }
 }
 
-function addSongs(data, callback, ...args){
+function addSongs(jsonResponse, callback, ...args){
     func.writeToFile(
         fs,
         lastRequestRaw, 
-        data, 
+        jsonResponse, 
         () => {func.log(`${lastRequestRaw} was updated`)}, 
         (error) => {func.log(`error writing to ${lastRequestRaw} ${error}`)}
     );
 
-    const jsonResponse = JSON.parse(data);
-    
     func.log(`total: ${jsonResponse.total} next: ${jsonResponse.next}`);
 
     let lastTrackTimestamp = null;
@@ -344,7 +348,7 @@ function addSongs(data, callback, ...args){
     if(20 < numberOfSongs){
         const durationSumInMinutes = (durationSum / (1000 * 60)).toFixed(2);
         func.log(`recalculating new oneTrackApproxTime from ${numberOfSongs} tracks with duration sum ${durationSumInMinutes}min (${durationSum}ms)`);
-        const newOneTrackApproxTime = (durationSumInMinutes / numberOfSongs).toFixed(2);
+        const newOneTrackApproxTime = ((durationSumInMinutes / numberOfSongs) * SONG_PROCENTAGE_ERROR_MARGIN).toFixed(2);
         if(1 < newOneTrackApproxTime){
             oneTrackApproxTime = newOneTrackApproxTime;
             func.log(`new oneTrackApproxTime = ${newOneTrackApproxTime}`);
@@ -398,7 +402,7 @@ function addSongs(data, callback, ...args){
     //     }
     // });
 
-    console.log(toAdd);
+    // console.log(toAdd);
     history.insertMany(toAdd).then(result => {
         if(result.acknowledged == true){
             func.log(`retrieved ${toAdd.length} tracks`);
@@ -439,16 +443,18 @@ function lastTracks(callback, ...args){
         
         // Ending the response 
         res.on("end", () => {
-            func.log(`lastTrack status Code ${res.statusCode}`);
+            data = JSON.parse(data);
+            func.log(`lastTracks: status Code ${res.statusCode}`);
+            const error = `lastTracks: ${data.status} ${data.message}`;
             if(res.statusCode === 200){
                 addSongs(data, callback, args);
             }
             else if(res.statusCode == 401){
-                func.error("Bad or expired token, requesting refreshed token");
+                func.error(error);
                 requestRefreshedAccessToken();
             }
             else{
-                func.log(`status Code ${res.statusCode}`);
+                func.error(error);
             }
         });
            
@@ -518,6 +524,7 @@ function getSongInfo(ids, songInfo, onSuccess, onError){
         // Ending the response 
         res.on("end", () => {
             data = JSON.parse(data);
+            const error = `getSongInfo: ${data.status} ${JSON.stringify(data.message)}`;
             if(res.statusCode === 200){
                 const tracks = data.tracks;
                 if(data != null && tracks != null){
@@ -530,23 +537,20 @@ function getSongInfo(ids, songInfo, onSuccess, onError){
                     onSuccess(songInfo);
                 }
                 else{
-                    onError();
+                    onError("no songInfo were added");
                 }
             }
             else if(res.statusCode == 401){
-                onError();
-                func.error("Bad or expired token, requesting refreshed token");
+                onError(error);
                 requestRefreshedAccessToken();
             }
             else{
-                onError();
-                func.log(`status Code ${res.statusCode} ${data}`);
+                onError(error);
             }
         });
            
     }).on("error", (error) => {
-        onError();
-        func.error(`error occurred on requesting last tracks: "${error}"`);
+        onError(`error occurred on getSongInfo: "${error}"`);
     }).end();
 }
 
@@ -556,8 +560,8 @@ function getArtistInfo(ids, artistInfo, onSuccess, onError){
         return 0;
     }
     
-    if(100 < ids.length){
-        ids.splice(100);
+    if(50 < ids.length){
+        ids.splice(50);
     }
 
     const options = {
@@ -578,33 +582,31 @@ function getArtistInfo(ids, artistInfo, onSuccess, onError){
         
         res.on("end", () => {
             data = JSON.parse(data);
+            const error = `getArtistInfo: ${data.status} ${JSON.stringify(data.message)}`;
             if(res.statusCode === 200){
                 const artists = data.artists;
                 if(data != null && artists != null){
-                    const newArtist = artists.map(artist=> new Artist(artist));
+                    const newArtist = artists.map(artist => new Artist(artist));
                     artistsSet.insertMany(newArtist).then(result => {
                         func.log(`added ${result.insertedCount} new artists`);
                         onSuccess(artistInfo.concat(newArtist));
                     });
                 }
                 else{
-                    onError();
+                    onError("no new artists were added");
                 }
             }
             else if(res.statusCode == 401){
-                onError();
-                func.error("Bad or expired token, requesting refreshed token");
+                onError(error);
                 requestRefreshedAccessToken();
             }
             else{
-                onError();
-                func.log(`status Code ${res.statusCode} ${data}`);
+                onError(error);
             }
         });
            
     }).on("error", (error) => {
-        onError();
-        func.error(`error occurred on requesting last tracks: "${error}"`);
+        onError(`error occurred on getArtistInfo: "${error}"`);
     }).end();
 }
 
@@ -629,8 +631,7 @@ function getAndUpdate(collection, array, queryName, onSuccess, onError, callback
         }
     })
     .catch(error => {
-        func.error(`error on quering songs: ${error}`);
-        onError(error);
+        onError(`error on quering collection: ${error}`);
     });
 }
 
@@ -643,7 +644,11 @@ app.post("/api/artistInfo", (req, res) => {
         res.json(entries);
     }
     
-    const onError = () => {res.sendStatus(404)}
+    const onError = (message, statusCode = 500) => {
+        func.error(message);
+        res.statusMessage = message;
+        res.status(statusCode).end();
+    };
 
     getAndUpdate(artistsSet, artistIds, "artistId", getArtistInfo, onError, onSuccess);
 });
@@ -657,7 +662,11 @@ app.post("/api/songInfo", (req, res) => {
         res.json(entries);
     };
 
-    const onError = () => {res.sendStatus(404)}
+    const onError = (message, statusCode = 500) => {
+        func.error(message);
+        res.statusMessage = message;
+        res.status(statusCode).end();
+    };
 
     getAndUpdate(songsSet, songIds, "songId", getSongInfo, onError, onSuccess);
 });
@@ -701,8 +710,10 @@ app.post('/api/played', (req, res) => {
         res.json(songs);
     })
     .catch(error => {
-        func.error(`error on quering songs: ${error}`);
-        res.sendStatus(500);
+        const err = `failed to query songs: ${error}`;
+        func.error(err);
+        res.statusMessage = err;
+        res.status(500).end();
     });
 });
 

@@ -1,9 +1,14 @@
 import { LookUpList } from "./arrayList.js";
 
 export class SongSelector{
-    constructor(parent){
+    constructor(parent, clear){
         this.parent = parent;
         this.items = new LookUpList();
+
+        clear.addEventListener("click", () => {
+            this.items.clear();
+            this.update();
+        });
     }
 
     addSelector(songElementInfo, songId, removeButton){
@@ -42,7 +47,7 @@ export class SongSelector{
             this.parent.appendChild(curr.val.second);
             curr = curr.next;
         }
-        this.items.print();
+        // this.items.print();
     }
 
     selected(){
