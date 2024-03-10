@@ -4,3 +4,5 @@ https://developer.spotify.com/documentation/web-api/reference/get-users-top-arti
 
 https://developer.spotify.com/policy#iii-some-prohibited-applications
 https://developer.spotify.com/documentation/design#introduction
+
+https://developer.spotify.com/documentation/web-api/reference/get-multiple-artists

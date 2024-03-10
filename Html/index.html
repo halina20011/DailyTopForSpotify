@@ -36,14 +36,22 @@
                     <button class="spotifyTopItems">Top items from Spotify</button>
                 </div>
                 <div class="songsHolder"></div>
+                <!-- <div class="artistsHolder"></div> -->
                 <div class="statisticsHolder">
                     <div class="listenTime">
                         <p style="padding-bottom: 5px;">total duration: </p>
                         <p id="listenDuration"></p>
                     </div>
-                    <div class="histogramHolder">
+                   <div class="histogramHolder">
                         <div class="histogram"></div>
                         <div class="histogramText"></div>
+                    </div>
+                    <div class="sameLineSpaceBetween">
+                        <p>sort base on: </p>
+                        <select id="sortingType">
+                            <option>duration</option>
+                            <option>playback</option>
+                        </select>
                     </div>
                     <div class="durationsHolders">
                         <div class="songDurationOrder">

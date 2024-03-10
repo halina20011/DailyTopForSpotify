@@ -304,6 +304,13 @@ class SongInfo{
 }
 
 function addSongs(jsonResponse, callback, ...args){
+    if(!jsonResponse.items || Object.keys(jsonResponse.items).length <= 0){
+        func.log(`retrieved 0 tracks`);
+        infoLogAccess("write", Date.now());
+        setNextReqest();
+        return;
+    }
+
     func.writeToFile(
         fs,
         lastRequestRaw, 
@@ -312,12 +319,7 @@ function addSongs(jsonResponse, callback, ...args){
         (error) => {func.log(`error writing to ${lastRequestRaw} ${error}`)}
     );
 
-    func.log(`total: ${jsonResponse.total} next: ${jsonResponse.next}`);
-
-    let lastTrackTimestamp = null;
-    if(jsonResponse.items && jsonResponse.items[0]){
-        lastTrackTimestamp = new Date(jsonResponse.items[0].played_at).getTime();
-    }
+    lastTrackTimestamp = new Date(jsonResponse.items[0].played_at).getTime();
 
     const toAdd = [];
 

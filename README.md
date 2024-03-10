@@ -1,5 +1,5 @@
 # Daily Top For Spotify
-local server for tracking and viewing your Spotify stats
+"Daily top for Spotify" is local web server for tracking and viewing your Spotify stats
 
 ## Configuration
 Login to the Spotify Developer Dashboard and create you new "App". You can visit Spotify docs for more [info](https://developer.spotify.com/documentation/web-api/tutorials/getting-started#create-an-app)</br>
