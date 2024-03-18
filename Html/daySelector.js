@@ -111,13 +111,16 @@ class DaySelector{
     }
 
     select(){
-        this.selectedDays.add(this);
+        this.selectedDays.add(this.date.stamp());
+        // console.log(Array.from(this.selectedDays));
+        // console.log(this.days);
+        // console.log(this.date.);
         this.element.classList.add("selectedDay");
         this.selected = true;
     }
 
     unselect(){
-        this.selectedDays.delete(this);
+        this.selectedDays.delete(this.date.stamp());
         this.element.classList.remove("selectedDay");
         this.selected = false;
     }
@@ -160,7 +163,9 @@ class MonthSelector{
 
             if(enabled){
                 dayDate = new Date(this.date);
-                dayDate.setDate(i - this.start + 1);
+                const date = i - this.start + 1;
+                // console.log(date);
+                dayDate.setDate(date);
             }
             const dayHolder = new DaySelector(dayDate, this.selectedDays, this.dayHolder, this.days);
 
@@ -250,7 +255,9 @@ export class DateSelector{
 
         buttonHolder.querySelector(".clearAll").addEventListener("click", () => { this.clearAll(); });
 
-        buttonHolder.querySelector(".submit").addEventListener("click", () => {submitFunc(this.selected())});
+        buttonHolder.querySelector(".submit").addEventListener("click", () => {
+            submitFunc(this.selected());
+        });
 
         const selectDateRange = rangeSelector.querySelector(".selectDateRange");
         selectDateRange.$("input", () => {
@@ -280,7 +287,7 @@ export class DateSelector{
     }
 
     selected(){
-        return Array.from(this.selectedDays).map(daySelector => daySelector.date);
+        return Array.from(this.selectedDays.keys()).map(stamp => new Date().fromStamp(stamp));
     }
     
     clearAll(){

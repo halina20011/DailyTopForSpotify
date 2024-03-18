@@ -31,16 +31,23 @@
             </div>
             <div class="content">
                 <div class="previewType">
-                    <button class="songPreview">songs</button>
                     <button class="statisticsPreview">statistics</button>
+                    <button class="songPreview">songs</button>
                     <button class="spotifyTopItems">Top items from Spotify</button>
                 </div>
-                <div class="songsHolder"></div>
                 <!-- <div class="artistsHolder"></div> -->
                 <div class="statisticsHolder">
                     <div class="listenTime">
                         <p style="padding-bottom: 5px;">total duration: </p>
                         <p id="listenDuration"></p>
+                    </div>
+                    <div class="sameLineSpaceBetween">
+                        <p>histogram type </p>
+                        <select id="histogramDivision">
+                            <option value="0">30 min</option>
+                            <option value="1">1 hour</option>
+                            <option value="2">1 day</option>
+                        </select>
                     </div>
                    <div class="histogramHolder">
                         <div class="histogram"></div>
@@ -62,6 +69,7 @@
                         </div>
                     </div>
                 </div>
+                <div class="songsHolder"></div>
                 <div class="spotifyTopItemsHolder"></div>
                 <div class="footer">
                     <p>Music data, artist images, album covers, and song previews are provided by Spotify. Spotify is a trademark of Spotify AB.</p>

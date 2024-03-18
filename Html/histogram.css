@@ -21,6 +21,7 @@
     padding: 10px 40px;
     display: flex;
     align-items: flex-end;
+    gap: 5px;
 }
 
 .listenTime > div {
@@ -32,30 +33,70 @@
     font-size: 30px;
 }
 
-.histogram, .histogramText{
-    display: inline-flex;
+.histogram{
     position: relative;
-    gap: 2px;
     width: 100%;
     background-color: #1c1a1a;
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
 }
 
-.histogram{
+.histogramItemHolder{
+    position: relative;
+    flex: 1;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column;
+    padding-left: 1px;
+}
+
+.histogramItem{
     height: 200px;
+    display: flex;
+    justify-content: space-around;
 }
 
-.histogram > div{
+.histogramItem > div{
+    flex: 1;
+    max-width: 50px;
+    padding-bottom: 5px;
+}
+
+.histogramItem > div > div:nth-child(2){
     background-color: #808080;
 }
 
-.histogramHolder > div > div{
-    position: relative;
-    flex: 1;
-    align-self: flex-end;
+.vHidden{
+    visibility: hidden;
 }
 
-.histogramText > div > p{
-    text-align: center;
+.histogramItemHolder:hover > .histogramTextHolder > .histogramText{
+    display: flex;
+    visibility: visible;
+}
+
+.histogramTextHolder{
+    position: relative;
+    height: 20px;
+}
+
+.histogramText{
+    position: absolute;
+    width: 100%;
+    justify-content: center;
+    display: flex;
+    align-items: center;
+}
+
+.rotatedTextHolder{
+    height: fit-content;
+}
+
+.rotateText{
+    writing-mode: vertical-lr;
+    position: relative;
 }
 
 .durationsHolders{

@@ -6,7 +6,13 @@ Object.assign(globalThis, frontFunc);
 
 l("I live <3");
 
-let globalSongs = null, globalSongsInfo = null, globalArtists = null, globalSortData = null, globalSortOrder = null;
+// TODO: graduall expansion of songs/artists
+// TODO: gravity on/off for histogram
+// TODO: highlight selected songs in histogram
+// TODO: top items from spotify
+// TODO: url encoded settings
+
+let globalSongs = null, globalSongsInfo = null, globalArtists = null, globalDates = null, globalSortData = null, globalSortOrder = null;
 
 const songSelectorHolder = document.querySelector(".songSelectorHolder");
 const songSelector = new SongSelector(songSelectorHolder, songSelectorClearAll);
@@ -18,8 +24,8 @@ const spotifyTopItemsHolder = document.querySelector(".spotifyTopItemsHolder");
 const histogramElement = document.querySelector(".histogram");
 const histogramTextElement = document.querySelector(".histogramText");
 
-const windowButtons = [".songPreview", ".statisticsPreview", ".spotifyTopItems"].map(bName => document.querySelector(bName));
-const windows = [songsHolder, statisticsHolder, spotifyTopItemsHolder];
+const windowButtons = [".statisticsPreview", ".songPreview", ".spotifyTopItems"].map(bName => document.querySelector(bName));
+const windows = [statisticsHolder, songsHolder, spotifyTopItemsHolder];
 let activeWindow = 0;
 
 const nullImage = "/Images/nullProfilePic.png";
@@ -55,6 +61,10 @@ const previewStylesButtons = [".toggleSongSmallLineStyle", ".toggleSongLineStyle
 });
 
 previewStylesButtons[0].click();
+
+histogramDivision.$("change", () => {
+    createHistogram(globalSongs, globalSongsInfo, globalDates);
+});
 
 globalSortOrder = sortingType.value;
 sortingType.$("change", () => {
@@ -192,15 +202,28 @@ function createSongEntries(songs, songsInfo, artists){
 
 // TODO: createArtistEntries
 
+// divisions: 30 min
+// divisions: 1 hour
+// divisions: 1 day
 function createHistogram(songs, songsInfo, dates){
+    if(dates.length <= 0){
+        return;
+    }
+
+    // console.log(dates);
     dates.sort((a,b) => a - b);
-    const lastDate = dates[dates.length - 1];
-    const daysMaxDifference = Math.ceil(Math.abs(dates[0] - lastDate) / (1000 * 60 * 60 * 24));
+    // console.log(dates);
+    // const lastDate = dates[dates.length - 1];
+    // const daysMaxDifference = Math.ceil(Math.abs(dates[0] - lastDate) / (1000 * 60 * 60 * 24));
+    // console.log(daysMaxDifference);
     
     histogramElement.innerHTML = "";
     histogramTextElement.innerHTML = "";
 
-    const histogram = Array.from({length: 24}, () => {return 0;});
+    // const histogram = Array.from({length: 24}, () => {return 0;});
+    // const firstMonday = dates[0].firstMonday();
+    // // clear ms, s, m, h
+    // firstMonday.clear(4);
     const allSongs = [];
 
     let totalDuration = 0;
@@ -226,37 +249,87 @@ function createHistogram(songs, songsInfo, dates){
 
     listenDuration.innerHTML = getFormatedTime(totalDuration);
 
-    console.log(allSongs);
-    const size = allSongs.length;
-    for(let i = 0; i < size; i++){
+    const division = parseInt(histogramDivision.value);
+
+    // go throw each date and generate its places
+    const hashIndex = new Map();
+    let index = 0;
+    const texts = []
+    dates.forEach(date => {
+        const stamp = date.stamp();
+        if(division == 0){
+            for(let i = 0; i < 24; i++){
+                for(let m = 0; m < 2; m++){
+                    const hours = padNumber(i, 2);
+                    const hash = `${m}${hours}${stamp}`;
+                    // console.log(hash, index);
+                    hashIndex.set(hash, index++);
+                    const min = (m == 0) ? "00" : "30";
+                    texts.push(`${hours}:${min}`);
+                }
+            }
+        }
+        else if(division == 1){
+            for(let i = 0; i < 24; i++){
+                const hours = padNumber(i, 2);
+                const hash = `${hours}${stamp}`;
+                hashIndex.set(hash, index++);
+                texts.push(`${hours}`);
+            }
+        }
+        else{
+            const hash = stamp;
+            hashIndex.set(hash, index++);
+            texts.push(`${stamp.substring(0, 2)}`);
+        }
+    });
+
+    const histogram = Array.from({length: index}, _ => 0);
+        
+    for(let i = 0; i < allSongs.length; i++){
         const song = allSongs[i];
         const duration = song.duration;
-        // if(i + 1 != size){
-        //     if(allSongs[i + 1].playedAt < song.end){
-        //         duration = allSongs[i + 1].playedAt - song.playedAt;
-        //     }
-        // }
-        // const song = songs[sKey];
-        const time = song.time;
-        // console.log(time.getHours(), song.time);
-        histogram[time.getHours()] += duration;
+
+        const hash = song.time.hashFunc(division);
+        const index = hashIndex.get(hash);
+        // console.log(`${hash} => ${index}`);
+
+        histogram[index] += duration;
     }
 
-    histogram.forEach((v,i) => {
-        // console.log(v, i);
-        const minutes = Math.min(v / (60 * 1000), 60);
-        const afk = (60 - minutes) / 60 * 100;
-        const el = createElement(`<div>
+    const maxArray = [30, 60, 60 * 24];
+    const max = maxArray[division];
+
+    let textClass = "histogramText";
+    if(50 < index){
+        textClass = "histogramText vHidden";
+    }
+
+    let textClassHolder = "histogramTextHolder";
+    if(division == 0){
+        textClass += " rotateText";
+        textClassHolder += " rotatedTextHolder";
+    }
+
+    histogram.forEach((v, i) => {
+        const minutes = Math.min(v / (60 * 1000), max);
+        const afk = ((max - minutes) / max) * 100;
+        // console.log(minutes, afk);
+        const el = createElement(`<div class="histogramItemHolder">
+            <div class="histogramItem">
+                <div>
+                    <div style="height: ${afk}%"></div>
+                    <div style="height: ${100 - afk}%"></div>
+                </div>
+            </div>
+            <div class="${textClassHolder}">
+                <p class="${textClass}">${texts[i]}</p>
+            </div>
             </div>`);
-        const text = createElement(`<div><p>${i}</p></div>`);
-        // el.style.paddingTop = `${afk}%`;
-        el.style.height = `${100 - afk}%`;
         histogramElement.appendChild(el);
-        histogramTextElement.appendChild(text);
-        // const listenTime = 60 * 60 * 1000 - v;
-        // console.log();
+        // const text = createElement(`<div></div>`);
+        // histogramTextElement.appendChild(text);
     });
-    // console.log(histogram);
 
     return totalDuration;
 }
@@ -369,6 +442,7 @@ function createSongs(songs, dates){
             globalSongsInfo = songsInfo;
             globalArtists = artists;
             globalSortData = sortData;
+            globalDates = dates;
 
             // console.log("data arrived");
             update();
@@ -377,24 +451,13 @@ function createSongs(songs, dates){
     });
 }
 
-function dateStamp(date){
-    // console.log(date);
-    const d = String(date.getDate()).padStart(2, '0');
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const y = String(date.getFullYear());
-
-    const folderName = `${d}${m}${y}`;
-
-    return folderName;
-}
-
 // dates: date object or array of date objects
 function requestSavedSongs(dates){
     if(!Array.isArray(dates)){
         dates = [dates];
     }
 
-    const reqDates = dates.map(date => dateStamp(date));
+    const reqDates = dates.map(date => date.stamp());
 
     const selectedSongs = songSelector.selected();
 
@@ -431,4 +494,5 @@ songSelectorSubmit.$("click", () => {
     requestSavedSongs(dateSelector.selected());
 });
 
-requestSavedSongs(new Date());
+// const date = new Date
+requestSavedSongs(new Date(new Date().setDate(16)));

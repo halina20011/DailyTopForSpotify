@@ -81,3 +81,61 @@ Date.prototype.yesterday = function(){
     return _yesterday;
 }
 
+Date.prototype.firstMonday = function(){
+    const day = this.getDay();
+    const diff = this.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(this.setDate(diff));
+}
+
+Date.prototype.clear = function(level){
+    const dP = Date.prototype;
+    const functions = [dP.setMilliseconds, dP.setSeconds, dP.setMinutes, dP.setHours, dP.setDate];
+    for(let i = 0; i <= level; i++){
+        functions[i].apply(this, [0]);
+    }
+}
+
+export function padNumber(n, s){
+    return String(n).padStart(s, '0');
+}
+
+Date.prototype.stamp = function(){
+    const d = String(this.getDate()).padStart(2, '0');
+    const m = String(this.getMonth() + 1).padStart(2, '0');
+    const y = String(this.getFullYear());
+
+    return `${d}${m}${y}`;
+}
+
+Date.prototype.fromStamp = function(stamp){
+    this.clear(4);
+    const d = parseInt(stamp.substring(0, 2));
+    const m = parseInt(stamp.substring(2, 4)) - 1;
+    const y = parseInt(stamp.substring(4, 8));
+
+    // l(stamp);
+    // l(d, m, y);
+
+    this.setDate(d);
+    this.setMonth(m);
+    this.setFullYear(y);
+
+    return this;
+}
+
+Date.prototype.hashFunc = function(start){
+    const min = String(Math.floor(this.getMinutes() / 30));
+    const h = padNumber(this.getHours(), 2);
+    const d = padNumber(this.getDate(), 2);
+    const m = padNumber(this.getMonth() + 1, 2);
+    const y = String(this.getFullYear());
+
+    const arr = [min, h, d, m, y];
+
+    let str = "";
+    for(let i = start; i < arr.length; i++){
+        str += arr[i];
+    }
+
+    return str;
+}

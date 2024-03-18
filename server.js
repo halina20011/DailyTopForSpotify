@@ -319,7 +319,7 @@ function addSongs(jsonResponse, callback, ...args){
         (error) => {func.log(`error writing to ${lastRequestRaw} ${error}`)}
     );
 
-    lastTrackTimestamp = new Date(jsonResponse.items[0].played_at).getTime();
+    const lastTrackTimestamp = new Date(jsonResponse.items[0].played_at).getTime();
 
     const toAdd = [];
 

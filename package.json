@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "front": "browser-sync start --proxy localhost:5000 --files Html/**/*",
-        "back": "nodemon --ext 'js' --watch ./ server.js",
+        "back": "nodemon --ext 'js' --watch server.js --watch func.js",
         "production": "forever start server.js"
     },
     "keywords": [],
