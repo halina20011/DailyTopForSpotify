@@ -156,6 +156,19 @@
     background-color: rgba(255, 255, 255, 0.05);
 }
 
+.loadButton{
+    padding: 5px;
+}
+
+.loadButton > button{
+    font-size: 20px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 5px;
+    border: none;
+    height: 40px;
+    width: 100%;
+}
+
 .songDurationItem > div > p,
 .artistDurationItem > div > p{
     position: absolute;

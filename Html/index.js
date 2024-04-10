@@ -132,7 +132,7 @@ HTMLElement.prototype.appendChildren = function(...args){
     }
 };
 
-function createSongEntries(songs, songsInfo, artists){
+function createSongEntries(songs, songsInfo, artists, count = null){
     // console.log(songs);
     // console.log(songsInfo);
 
@@ -167,8 +167,7 @@ function createSongEntries(songs, songsInfo, artists){
                     <p>${song.playbackCount}</p>
                 </div>
                 <div class="playedAt hidden" id="playedAt"></div>
-            </div>
-        `;
+            </div>`;
 
         const playedAtEl = songElement.querySelector("#playedAt");
         const playedAtInfo = songElement.querySelector(".playedAtInfo");
@@ -334,7 +333,23 @@ function createHistogram(songs, songsInfo, dates){
     return totalDuration;
 }
 
-function createSongTable(songs, songsInfo){
+function loadSongs(text, count, max, parent){
+    if(max < count){
+        return;
+    }
+
+    const button = createElement(`<div class="loadButton">
+            <button>${text}</button>
+        </div>`);
+
+    button.querySelector("button").$("click", () => {
+        createSongTable(globalSongs, globalSongsInfo, count);
+    });
+
+    parent.appendChild(button);
+}
+
+function createSongTable(songs, songsInfo, count = null){
     songDurationOrderHolder.innerHTML = "";
 
     const order = globalSortData.songs[globalSortOrder];
@@ -344,7 +359,10 @@ function createSongTable(songs, songsInfo){
 
     const firstSong = order[0][0];
 
-    order.forEach(entry => {
+    count = (count == null || order.length < count) ? order.length : count;
+    for(let i = 0; i < count; i++){
+        const entry = order[i];
+
         const songId = entry[1];
         const song = songs[songId];
         const songInfo = songsInfo[song.songId];
@@ -361,10 +379,34 @@ function createSongTable(songs, songsInfo){
                 <p style="margin-left: auto;">${text}</p>
             </div>`);
         songDurationOrderHolder.appendChild(element);
-    });
+    };
+
+    loadSongs("load 25", count + 25, order.length, songDurationOrderHolder);
+    loadSongs("load 50", count + 50, order.length, songDurationOrderHolder);
+    if(count != order.length){
+        loadSongs("load all", order.length, order.length, songDurationOrderHolder);
+    }
+
+    loadSongs("collapse all", 0, order.length, songDurationOrderHolder);
 }
 
-function createArtistTable(artists){
+function loadArtists(text, count, max, parent){
+    if(max < count){
+        return;
+    }
+
+    const button = createElement(`<div class="loadButton">
+            <button>${text}</button>
+        </div>`);
+
+    button.querySelector("button").$("click", () => {
+        createArtistTable(globalArtists, count);
+    });
+
+    parent.appendChild(button);
+}
+
+function createArtistTable(artists, count = null){
     artistDurationOrderHolder.innerHTML = "";
 
     const order = globalSortData.artists[globalSortOrder];
@@ -373,7 +415,10 @@ function createArtistTable(artists){
     }
     const firstArtist = order[0][0];
 
-    order.forEach(entry => {
+    count = (count == null || order.length < count) ? order.length : count;
+    for(let i = 0; i < count; i++){
+        const entry = order[i];
+
         const artistId = entry[1];
         const artist = artists[artistId];
         const image = (artist && artist.image) ? artist.image : nullImage;
@@ -388,8 +433,17 @@ function createArtistTable(artists){
                 </div>
                 <p style="margin-left: auto;">${text}</p>
             </div>`);
+
         artistDurationOrderHolder.appendChild(element);
-    });
+    };
+
+    loadArtists("load 25", count + 25, order.length, artistDurationOrderHolder);
+    loadArtists("load 50", count + 50, order.length, artistDurationOrderHolder);
+    if(count != order.length){
+        loadArtists("load all", order.length, order.length, artistDurationOrderHolder);
+    }
+
+    loadArtists("collapse all", 0, order.length, artistDurationOrderHolder);
 }
 
 function requestInfo(url, obj){
@@ -409,8 +463,8 @@ function requestInfo(url, obj){
 
 function update(){
     createSongEntries(globalSongs, globalSongsInfo, globalArtists);
-    createSongTable(globalSongs, globalSongsInfo);
-    createArtistTable(globalArtists);
+    createSongTable(globalSongs, globalSongsInfo, 25);
+    createArtistTable(globalArtists, 25);
 }
 
 // first join all songs and sort them and apply filters if needed
@@ -495,4 +549,5 @@ songSelectorSubmit.$("click", () => {
 });
 
 // const date = new Date
-requestSavedSongs(new Date(new Date().setDate(16)));
+// const testDate = new Date(new Date().setDate(1));
+requestSavedSongs(new Date());
