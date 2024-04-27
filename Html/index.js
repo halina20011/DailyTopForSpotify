@@ -6,11 +6,13 @@ Object.assign(globalThis, frontFunc);
 
 l("I live <3");
 
-// TODO: graduall expansion of songs/artists
 // TODO: gravity on/off for histogram
 // TODO: highlight selected songs in histogram
 // TODO: top items from spotify
 // TODO: url encoded settings
+// TODO: cancle request
+// TODO: data histogram
+// TODO: load animation
 
 let globalSongs = null, globalSongsInfo = null, globalArtists = null, globalDates = null, globalSortData = null, globalSortOrder = null;
 
@@ -22,7 +24,6 @@ const songsHolder = document.querySelector(".songsHolder");
 const statisticsHolder = document.querySelector(".statisticsHolder");
 const spotifyTopItemsHolder = document.querySelector(".spotifyTopItemsHolder");
 const histogramElement = document.querySelector(".histogram");
-const histogramTextElement = document.querySelector(".histogramText");
 
 const windowButtons = [".statisticsPreview", ".songPreview", ".spotifyTopItems"].map(bName => document.querySelector(bName));
 const windows = [statisticsHolder, songsHolder, spotifyTopItemsHolder];
@@ -205,6 +206,8 @@ function createSongEntries(songs, songsInfo, artists, count = null){
 // divisions: 1 hour
 // divisions: 1 day
 function createHistogram(songs, songsInfo, dates){
+    histogramElement.innerHTML = "";
+
     if(dates.length <= 0){
         return;
     }
@@ -215,9 +218,6 @@ function createHistogram(songs, songsInfo, dates){
     // const lastDate = dates[dates.length - 1];
     // const daysMaxDifference = Math.ceil(Math.abs(dates[0] - lastDate) / (1000 * 60 * 60 * 24));
     // console.log(daysMaxDifference);
-    
-    histogramElement.innerHTML = "";
-    histogramTextElement.innerHTML = "";
 
     // const histogram = Array.from({length: 24}, () => {return 0;});
     // const firstMonday = dates[0].firstMonday();
@@ -327,7 +327,6 @@ function createHistogram(songs, songsInfo, dates){
             </div>`);
         histogramElement.appendChild(el);
         // const text = createElement(`<div></div>`);
-        // histogramTextElement.appendChild(text);
     });
 
     return totalDuration;
@@ -480,6 +479,7 @@ function createSongs(songs, dates){
 
     const objSongIds = {"songIds": Array.from(songIdSet)};
 
+    ring.classList.add("visible");
     requestInfo("/api/songInfo", objSongIds).then(songsInfo => {
         const artistIdSet = new Set();
 
@@ -490,6 +490,7 @@ function createSongs(songs, dates){
 
         const objArtistIds = {"artistId": Array.from(artistIdSet)};
         requestInfo("/api/artistInfo", objArtistIds).then(artists => {
+            ring.classList.remove("visible");
             const sortData = sortSongsData(songs, songsInfo);
 
             globalSongs = songs;

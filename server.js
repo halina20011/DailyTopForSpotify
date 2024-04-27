@@ -17,7 +17,12 @@ const __dirname = path.dirname(__filenam);
 const app = express();
 const port = 5000;
 
+// TODO: use month, year database
 // TODO: sync prev spotify listen history
+// TODO: create test data/database
+// TODO: start request clock on start
+// TODO: add diff image sizes
+// TODO: api timeout class
 // https://www.spotify.com/us/account/privacy/
 
 let dataBaseUri;
@@ -63,10 +68,10 @@ const accessTokenTimeLeft = () => {
     return b - a;
 };
 
-function setNextReqest(){
-    const listenTimeApproximated = getListenTimeApproximated();
+function setNextReqest(offset = 0){
+    const listenTimeApproximated = getListenTimeApproximated() - offset;
     nextRequestTimer = new TimeOut(lastTracks, listenTimeApproximated);
-    func.log(`next request in ${listenTimeApproximated}ms in `);
+    func.log(`next request in ${listenTimeApproximated}ms`);
 }
 
 function setRefreshAccessTimeout(timeOutSeconds = refreshAccessTokenLifespan){
@@ -786,6 +791,7 @@ client.connect().then(_ => {
     artistsSet = db.collection("artistsSet");
 
     loadLogin();
+         
     if(refreshAccessToken != "" && refreshAccessToken != null){
         func.log(`refresh access token was found`);
         if(accessToken != null){
@@ -795,7 +801,15 @@ client.connect().then(_ => {
         else{
             requestRefreshedAccessToken(undefined /*lastTracks*/);
         }
-        // let lastTrack = infoLogAccess("read").lastRequest;
+
+        if(process.env.PRODUCTION){
+            let lastTrack = infoLogAccess("read").lastRequest;
+            if(lastTrack != null){
+                const offset = new Date() - lastTrack;
+                func.log(`recovering last track timestamp: ${lastTrack} => time offset: ${offset}`);
+                setNextReqest(offset);
+            }
+        }
     }
     else{
         func.log(`invalid refresh access token, waiting for user to log in on ${loginPath}`);

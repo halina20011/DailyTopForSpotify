@@ -7,7 +7,7 @@
     "scripts": {
         "front": "browser-sync start --proxy localhost:5000 --files Html/**/*",
         "back": "nodemon --ext 'js' --watch server.js --watch func.js",
-        "production": "forever start server.js"
+        "production": "export PRODUCTION=true; forever start server.js"
     },
     "keywords": [],
     "author": "halina20011",
