@@ -34,6 +34,10 @@ db.artistsSet.createIndex({"artistId": 1}, {unique: true})
 install forever and then run `npm install -g forever` and then run `npm run production` </br>
 now you can visite http://127.0.0.1:5000/
 
+## Import Spotify streaming history
+visit "https://www.spotify.com/us/account/privacy/" scroll down and request the "Extended streaming history". After you receive email with "Your Extended streaming history is ready", after that confirm it in email and wait aprox a month.
+after the data are ready download them and unzip them in some folder
+
 ## Montoring
 to see the logs made by the server use `forever logs server.js` to get the file path of the log file then use 
 `tail -f [fileLogName]` for example `tail -f ~/.forever/X5Zf.log`
@@ -73,3 +77,11 @@ db.songsSet.updateMany({},
   ]
 );
 ```
+
+### TODOs
+- switch to vue
+- albums
+- image size
+- all spotify listen history
+- catch month/year listen history (new database)
+- Top items from Spotify

@@ -97,7 +97,7 @@ function sortSongsData(songs, songsInfo){
             }
 
             allArtists.get(artistId).duration += duration;
-            allArtists.get(artistId).playback++;
+            allArtists.get(artistId).playback += song.playbackCount;
         });
     });
 
